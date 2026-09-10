@@ -1,0 +1,245 @@
+{
+  "结论": "中转站具有较宽的协议转换能力，但不同协议、模型别名和参数的语义并不一致，客户端不能只依据 HTTP 200 判断兼容。",
+  "探测统计": {
+    "模型数": 13,
+    "基础原始请求数": 19,
+    "综合能力请求数": 234,
+    "聊天补全专项请求数": 221,
+    "拒绝项复测请求数": 126,
+    "单模型详情请求数": 3,
+    "定向语义复测请求数": 1,
+    "总请求数": 604,
+    "凭证写入结果": false
+  },
+  "原始数据文件": {
+    "基础接口": "gateway-raw-responses.json",
+    "综合能力": "gateway-capability-matrix.json",
+    "聊天补全专项": "gateway-chat-completions-matrix.json"
+  },
+  "协议兼容": {
+    "responses": {
+      "成功": 13,
+      "失败": 0,
+      "说明": "全部模型均返回 object=response 的非流式响应。"
+    },
+    "chat_completions": {
+      "成功": 13,
+      "失败": 0,
+      "说明": "全部模型均返回 object=chat.completion 的非流式响应。"
+    },
+    "anthropic_messages": {
+      "成功": 12,
+      "失败": 1,
+      "失败模型": [
+        "grok-build"
+      ]
+    }
+  },
+  "聊天补全功能": {
+    "流式": {
+      "成功模型数": 13,
+      "全部包含结束事件": true
+    },
+    "严格工具调用": {
+      "成功模型数": 13,
+      "全部实际返回工具调用": true
+    },
+    "developer_role": {
+      "成功模型数": 11,
+      "失败模型": [
+        "deepseek-v4-flash",
+        "deepseek-v4-pro"
+      ],
+      "失败原因": "DeepSeek 只接受 system、user、assistant、tool 和 latest_reminder 角色。"
+    },
+    "严格结构化输出": {
+      "成功模型数": 11,
+      "失败模型": [
+        "deepseek-v4-flash",
+        "deepseek-v4-pro"
+      ],
+      "失败原因": "DeepSeek 返回 This response_format type is unavailable now。"
+    }
+  },
+  "responses功能": {
+    "流式": {
+      "成功模型数": 13,
+      "全部返回响应事件序列": true
+    },
+    "严格工具调用": {
+      "成功模型数": 13,
+      "全部实际返回工具调用": true
+    },
+    "严格结构化输出": {
+      "正常单对象模型数": 10,
+      "拒绝模型": [
+        "deepseek-v4-flash",
+        "deepseek-v4-pro"
+      ],
+      "异常成功模型": [
+        "gpt-5.3-codex-spark"
+      ],
+      "异常说明": "Spark 返回 200 且每段文本符合模式，但会产生多个阶段消息；把全部 output_text 拼接后不是单个合法 JSON 文档。"
+    }
+  },
+  "responses思考强度": {
+    "gpt-5.6-sol": {
+      "接受": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+      "拒绝": [],
+      "归一化": {"minimal": "none"}
+    },
+    "gpt-5.6-terra": {
+      "接受": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+      "拒绝": [],
+      "归一化": {"minimal": "none"}
+    },
+    "gpt-5.6-luna": {
+      "接受": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+      "拒绝": [],
+      "归一化": {"minimal": "none"}
+    },
+    "gpt-5.5": {
+      "接受": ["none", "minimal", "low", "medium", "high", "xhigh"],
+      "拒绝": ["max"],
+      "归一化": {"minimal": "none"}
+    },
+    "gpt-5.4": {
+      "接受": ["none", "minimal", "low", "medium", "high", "xhigh"],
+      "拒绝": ["max"],
+      "归一化": {"minimal": "none"}
+    },
+    "gpt-5.4-mini": {
+      "接受": ["none", "minimal", "low", "medium", "high", "xhigh"],
+      "拒绝": ["max"],
+      "归一化": {"minimal": "none"}
+    },
+    "gpt-5.3-codex-spark": {
+      "接受": ["low", "medium", "high", "xhigh"],
+      "拒绝": ["none", "minimal", "max"]
+    },
+    "deepseek-v4-flash": {
+      "接受": ["low", "medium", "high", "xhigh", "max"],
+      "拒绝": ["none", "minimal"],
+      "是否回显实际强度": false
+    },
+    "deepseek-v4-pro": {
+      "接受": ["low", "medium", "high", "xhigh", "max"],
+      "拒绝": ["none", "minimal"],
+      "是否回显实际强度": false
+    },
+    "grok-4.5": {
+      "接受": ["minimal", "low", "medium", "high", "xhigh"],
+      "拒绝": ["none", "max"],
+      "归一化": {"minimal": "low"}
+    },
+    "grok-4.3": {
+      "接受": ["none", "minimal", "low", "medium", "high", "xhigh"],
+      "拒绝": ["max"],
+      "归一化": {"minimal": "low"}
+    },
+    "grok-build": {
+      "接受": [],
+      "拒绝": ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
+    },
+    "grok-composer-2.5-fast": {
+      "接受": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+      "拒绝": [],
+      "归一化": {
+        "none": "high",
+        "minimal": "high",
+        "low": "high",
+        "medium": "high",
+        "high": "high",
+        "xhigh": "high",
+        "max": "high"
+      }
+    }
+  },
+  "chat_completions思考强度": {
+    "gpt-5.6-sol": {
+      "接受": ["none", "low", "medium", "high", "xhigh", "max"],
+      "拒绝": ["minimal"]
+    },
+    "gpt-5.6-terra": {
+      "接受": ["none", "low", "medium", "high", "xhigh", "max"],
+      "拒绝": ["minimal"]
+    },
+    "gpt-5.6-luna": {
+      "接受": ["none", "low", "medium", "high", "xhigh", "max"],
+      "拒绝": ["minimal"]
+    },
+    "gpt-5.5": {
+      "接受": ["none", "low", "medium", "high", "xhigh"],
+      "拒绝": ["minimal", "max"]
+    },
+    "gpt-5.4": {
+      "接受": ["none", "low", "medium", "high", "xhigh"],
+      "拒绝": ["minimal", "max"]
+    },
+    "gpt-5.4-mini": {
+      "接受": ["none", "low", "medium", "high", "xhigh"],
+      "拒绝": ["minimal", "max"]
+    },
+    "gpt-5.3-codex-spark": {
+      "接受": ["low", "medium", "high", "xhigh"],
+      "拒绝": ["none", "minimal", "max"]
+    },
+    "deepseek-v4-flash": {
+      "接受": ["low", "medium", "high", "xhigh", "max"],
+      "拒绝": ["none", "minimal"]
+    },
+    "deepseek-v4-pro": {
+      "接受": ["low", "medium", "high", "xhigh", "max"],
+      "拒绝": ["none", "minimal"]
+    },
+    "grok-4.5": {
+      "接受": ["minimal", "low", "medium", "high", "xhigh"],
+      "拒绝": ["none", "max"]
+    },
+    "grok-4.3": {
+      "接受": ["none", "minimal", "low", "medium", "high", "xhigh"],
+      "拒绝": ["max"]
+    },
+    "grok-build": {
+      "接受": [],
+      "拒绝": ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
+    },
+    "grok-composer-2.5-fast": {
+      "接受": ["minimal", "low", "medium", "high", "xhigh"],
+      "拒绝": ["none", "max"]
+    }
+  },
+  "长度结论": {
+    "models接口是否提供contextWindow或maxTokens": false,
+    "单模型详情端点": {
+      "路径形式": "/v1/models/{model}",
+      "三组凭证状态": [404, 404, 404]
+    },
+    "chat_completions": {
+      "max_tokens被全部模型接受": true,
+      "max_completion_tokens被全部模型接受": true,
+      "配置上限加一仍被全部模型接受": true
+    },
+    "responses": {
+      "max_output_tokens被全部模型接受": true,
+      "配置上限加一仍被全部模型接受": true,
+      "OpenAI和DeepSeek返回体未可靠回显该上限": true,
+      "Spark请求32但实际usage输出79": true,
+      "Spark请求256但实际usage输出1505": true
+    },
+    "可得结论": "网关没有通过这些短输出请求暴露或强制可验证的最大长度，当前 models.json 中的上下文和最大输出值不能由这些接口返回确认。",
+    "未执行": "未注入百万级上下文，也未要求模型实际生成数万至数十万令牌。"
+  },
+  "模型标识改写": {
+    "gpt-5.4-mini的responses返回": "gpt-5.4-mini-2026-03-17",
+    "grok-4.5的responses和chat_completions返回": "grok-4.5-build",
+    "grok-composer-2.5-fast的responses和chat_completions返回": "grok-4.5-build"
+  },
+  "客户端风险": {
+    "只按状态码判断": "会把参数被忽略、参数被归一化、模型别名改写和多阶段输出误判为完整兼容。",
+    "统一thinking_effort枚举": "会在 Spark、DeepSeek、Grok Build 及其他 Grok 模型上产生稳定失败。",
+    "统一developer角色": "会使两个 DeepSeek 模型稳定返回 400。",
+    "统一JSON Schema": "会使两个 DeepSeek 模型稳定返回 400，Spark 的 Responses 还需要按阶段解析。",
+    "信任配置的maxTokens": "网关接受上限加一，不能据此证明真实限制。"
+  }
+}

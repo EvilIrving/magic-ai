@@ -1,0 +1,7 @@
+/magic
+*.exe
+testdata/demo-lib/
+testdata/demo-home/
+.DS_Store
+
+.DS_Store

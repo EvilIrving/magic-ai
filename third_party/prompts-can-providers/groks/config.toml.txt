@@ -1,0 +1,334 @@
+[cli]
+installer = "internal"
+
+[ui]
+max_thoughts_width = 120
+fork_secondary_model = "grok-build"
+yolo = false
+compact_mode = true
+permission_mode = "always-approve"
+
+[features]
+telemetry = false
+
+[telemetry]
+trace_upload = false
+
+[harness]
+disable_workspace_teleport = true
+
+[marketplace]
+official_marketplace_auto_installed = false
+default_skills_installs_purged = false
+
+[[marketplace.sources]]
+name = "xAI Official"
+git = "https://github.com/xai-org/plugin-marketplace.git"
+
+[models]
+default = "gpt-5.6-sol"
+default_reasoning_effort = "high"
+
+[plugins]
+enabled = [
+    "exa",
+    "code-simplifier",
+]
+
+# Grok Build 0.2.114 不支持 ultra，因此 GPT-5.6 在这里最多配置到 max。
+
+# groks-managed-catalog-start
+[model."gpt-5.6-sol"]
+model = "gpt-5.6-sol"
+name = "GPT-5.6 Sol"
+base_url = "https://api.shu.cool/v1"
+env_key = "SHU_API_KEY"
+api_backend = "responses"
+context_window = 1050000
+max_completion_tokens = 128000
+supports_reasoning_effort = true
+reasoning_effort = "high"
+
+[[model."gpt-5.6-sol".reasoning_efforts]]
+value = "none"
+label = "None"
+default = false
+
+[[model."gpt-5.6-sol".reasoning_efforts]]
+value = "low"
+label = "Low Effort"
+default = false
+
+[[model."gpt-5.6-sol".reasoning_efforts]]
+value = "medium"
+label = "Medium Effort"
+default = false
+
+[[model."gpt-5.6-sol".reasoning_efforts]]
+value = "high"
+label = "High Effort"
+default = true
+
+[[model."gpt-5.6-sol".reasoning_efforts]]
+value = "xhigh"
+label = "Extra High Effort"
+default = false
+
+[[model."gpt-5.6-sol".reasoning_efforts]]
+value = "max"
+label = "Max Effort"
+default = false
+
+[model."gpt-5.6-terra"]
+model = "gpt-5.6-terra"
+name = "GPT-5.6 Terra"
+base_url = "https://api.shu.cool/v1"
+env_key = "SHU_API_KEY"
+api_backend = "responses"
+context_window = 1050000
+max_completion_tokens = 128000
+supports_reasoning_effort = true
+reasoning_effort = "high"
+
+[[model."gpt-5.6-terra".reasoning_efforts]]
+value = "none"
+label = "None"
+default = false
+
+[[model."gpt-5.6-terra".reasoning_efforts]]
+value = "low"
+label = "Low Effort"
+default = false
+
+[[model."gpt-5.6-terra".reasoning_efforts]]
+value = "medium"
+label = "Medium Effort"
+default = false
+
+[[model."gpt-5.6-terra".reasoning_efforts]]
+value = "high"
+label = "High Effort"
+default = true
+
+[[model."gpt-5.6-terra".reasoning_efforts]]
+value = "xhigh"
+label = "Extra High Effort"
+default = false
+
+[[model."gpt-5.6-terra".reasoning_efforts]]
+value = "max"
+label = "Max Effort"
+default = false
+
+[model."gpt-5.6-luna"]
+model = "gpt-5.6-luna"
+name = "GPT-5.6 Luna"
+base_url = "https://api.shu.cool/v1"
+env_key = "SHU_API_KEY"
+api_backend = "responses"
+context_window = 1050000
+max_completion_tokens = 128000
+supports_reasoning_effort = true
+reasoning_effort = "high"
+
+[[model."gpt-5.6-luna".reasoning_efforts]]
+value = "none"
+label = "None"
+default = false
+
+[[model."gpt-5.6-luna".reasoning_efforts]]
+value = "low"
+label = "Low Effort"
+default = false
+
+[[model."gpt-5.6-luna".reasoning_efforts]]
+value = "medium"
+label = "Medium Effort"
+default = false
+
+[[model."gpt-5.6-luna".reasoning_efforts]]
+value = "high"
+label = "High Effort"
+default = true
+
+[[model."gpt-5.6-luna".reasoning_efforts]]
+value = "xhigh"
+label = "Extra High Effort"
+default = false
+
+[[model."gpt-5.6-luna".reasoning_efforts]]
+value = "max"
+label = "Max Effort"
+default = false
+
+[model."gpt-5.5"]
+model = "gpt-5.5"
+name = "GPT-5.5"
+base_url = "https://api.shu.cool/v1"
+env_key = "SHU_API_KEY"
+api_backend = "responses"
+context_window = 1050000
+max_completion_tokens = 128000
+supports_reasoning_effort = true
+reasoning_effort = "high"
+
+[[model."gpt-5.5".reasoning_efforts]]
+value = "none"
+label = "None"
+default = false
+
+[[model."gpt-5.5".reasoning_efforts]]
+value = "low"
+label = "Low Effort"
+default = false
+
+[[model."gpt-5.5".reasoning_efforts]]
+value = "medium"
+label = "Medium Effort"
+default = false
+
+[[model."gpt-5.5".reasoning_efforts]]
+value = "high"
+label = "High Effort"
+default = true
+
+[[model."gpt-5.5".reasoning_efforts]]
+value = "xhigh"
+label = "Extra High Effort"
+default = false
+
+[model."deepseek-v4-pro"]
+model = "deepseek-v4-pro"
+name = "DeepSeek V4 Pro"
+base_url = "https://api.shu.cool/v1"
+env_key = "SHU_DEEPSEEK_API_KEY"
+api_backend = "chat_completions"
+context_window = 1000000
+max_completion_tokens = 384000
+supports_reasoning_effort = true
+reasoning_effort = "high"
+
+[[model."deepseek-v4-pro".reasoning_efforts]]
+value = "low"
+label = "Low Effort"
+default = false
+
+[[model."deepseek-v4-pro".reasoning_efforts]]
+value = "medium"
+label = "Medium Effort"
+default = false
+
+[[model."deepseek-v4-pro".reasoning_efforts]]
+value = "high"
+label = "High Effort"
+default = true
+
+[[model."deepseek-v4-pro".reasoning_efforts]]
+value = "xhigh"
+label = "Extra High Effort"
+default = false
+
+[[model."deepseek-v4-pro".reasoning_efforts]]
+value = "max"
+label = "Max Effort"
+default = false
+
+[model."deepseek-v4-flash-vision-exp"]
+model = "deepseek-v4-flash-vision-exp"
+name = "DeepSeek V4 Flash Vision Exp"
+base_url = "https://api.shu.cool/v1"
+env_key = "SHU_DEEPSEEK_API_KEY"
+api_backend = "responses"
+context_window = 1000000
+max_completion_tokens = 384000
+supports_reasoning_effort = true
+reasoning_effort = "high"
+
+[[model."deepseek-v4-flash-vision-exp".reasoning_efforts]]
+value = "low"
+label = "Low Effort"
+default = false
+
+[[model."deepseek-v4-flash-vision-exp".reasoning_efforts]]
+value = "medium"
+label = "Medium Effort"
+default = false
+
+[[model."deepseek-v4-flash-vision-exp".reasoning_efforts]]
+value = "high"
+label = "High Effort"
+default = true
+
+[[model."deepseek-v4-flash-vision-exp".reasoning_efforts]]
+value = "xhigh"
+label = "Extra High Effort"
+default = false
+
+[[model."deepseek-v4-flash-vision-exp".reasoning_efforts]]
+value = "max"
+label = "Max Effort"
+default = false
+
+[model."grok-4.6"]
+model = "grok-4.6"
+name = "Grok 4.6"
+base_url = "https://api.shu.cool/v1"
+env_key = "SHU_GROK_API_KEY"
+api_backend = "responses"
+context_window = 500000
+max_completion_tokens = 128000
+supports_reasoning_effort = true
+reasoning_effort = "high"
+
+[[model."grok-4.6".reasoning_efforts]]
+value = "low"
+label = "Low Effort"
+default = false
+
+[[model."grok-4.6".reasoning_efforts]]
+value = "medium"
+label = "Medium Effort"
+default = false
+
+[[model."grok-4.6".reasoning_efforts]]
+value = "high"
+label = "High Effort"
+default = true
+
+[[model."grok-4.6".reasoning_efforts]]
+value = "xhigh"
+label = "Extra High Effort"
+default = false
+
+[model."grok-4.5"]
+model = "grok-4.5"
+name = "Grok 4.5"
+base_url = "https://api.shu.cool/v1"
+env_key = "SHU_GROK_API_KEY"
+api_backend = "responses"
+context_window = 500000
+max_completion_tokens = 128000
+supports_reasoning_effort = true
+reasoning_effort = "high"
+
+[[model."grok-4.5".reasoning_efforts]]
+value = "low"
+label = "Low Effort"
+default = false
+
+[[model."grok-4.5".reasoning_efforts]]
+value = "medium"
+label = "Medium Effort"
+default = false
+
+[[model."grok-4.5".reasoning_efforts]]
+value = "high"
+label = "High Effort"
+default = true
+
+[[model."grok-4.5".reasoning_efforts]]
+value = "xhigh"
+label = "Extra High Effort"
+default = false
+
+# groks-managed-catalog-end

@@ -1,0 +1,53 @@
+package registry
+
+import (
+	"magic/internal/adapter"
+	"magic/internal/adapters/claude"
+	"magic/internal/adapters/codex"
+	"magic/internal/adapters/copilot"
+	"magic/internal/adapters/gemini"
+	"magic/internal/adapters/grok"
+	"magic/internal/adapters/mcpuser"
+	"magic/internal/adapters/opencode"
+	"magic/internal/adapters/pi"
+	"magic/internal/adapters/trae"
+	"magic/internal/adapters/workbuddy"
+)
+
+var all []adapter.Adapter
+
+func init() {
+	all = []adapter.Adapter{
+		pi.New(),
+		grok.New(),
+		claude.New(),
+		codex.New(),
+		mcpuser.New(),
+		opencode.New(),
+		gemini.New(),
+		copilot.New(),
+		workbuddy.New(),
+		trae.New(),
+	}
+}
+
+func List() []adapter.Adapter { return all }
+
+func ByID(id string) (adapter.Adapter, bool) {
+	for _, a := range all {
+		if string(a.ID()) == id {
+			return a, true
+		}
+	}
+	return nil, false
+}
+
+func Implemented() []adapter.Adapter {
+	var out []adapter.Adapter
+	for _, a := range all {
+		if a.Implemented() {
+			out = append(out, a)
+		}
+	}
+	return out
+}
