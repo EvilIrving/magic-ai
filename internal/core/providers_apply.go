@@ -71,7 +71,7 @@ func ApplyProviders(adapters []adapter.Adapter, opts ApplyOptions) ([]string, er
 				log = append(log, fmt.Sprintf("[%s] providers: skip (not detected)", id))
 				continue
 			}
-			extra, err := applySwitchProvider(id, hint, opts)
+			extra, err := applySwitchProvider(id, f, hint, opts)
 			if err != nil {
 				return log, err
 			}
@@ -109,9 +109,9 @@ func applyClaudeProvider(f *catalog.File, hint string, secMap map[string]string,
 		log = append(log, fmt.Sprintf("[claude] providers: skip — secret for %s missing (set with magic secrets set %s --value …; need MAGIC_PASSPHRASE)", name, keyPh))
 		return log, nil
 	}
-	env := catalog.ClaudeSettingsEnv(ep, apiKey)
-	for k, v := range catalog.ClaudeModelRoleEnv(p) {
-		env[k] = v
+	env, err := provider.BuildClaudeEnvFromProvider(opts.MagicHome, name, p, ep, apiKey)
+	if err != nil {
+		return log, fmt.Errorf("[claude] providers: %w", err)
 	}
 	path, _, err := catalog.WriteClaudeSettings(opts.UserHome, env, opts.DryRun)
 	if err != nil {
@@ -155,18 +155,23 @@ func applyPiProvider(f *catalog.File, hint string, opts ApplyOptions) ([]string,
 	return log, nil
 }
 
-func applySwitchProvider(harness, hint string, opts ApplyOptions) ([]string, error) {
+func applySwitchProvider(harness string, f *catalog.File, hint string, opts ApplyOptions) ([]string, error) {
 	var log []string
-	if strings.TrimSpace(hint) == "" {
-		log = append(log, fmt.Sprintf("[%s] providers: skip (no active provider)", harness))
-		return log, nil
+	target := strings.TrimSpace(hint)
+	if target == "" {
+		name, _, _, ok, msg := catalog.ResolveProviderForProtocols(f, "", catalog.PiOpenAIProtocolPreference...)
+		if !ok {
+			log = append(log, fmt.Sprintf("[%s] providers: skip — %s", harness, msg))
+			return log, nil
+		}
+		target = name
 	}
 	if opts.DryRun {
-		log = append(log, fmt.Sprintf("[%s] providers: would apply company (%s)", harness, hint))
+		log = append(log, fmt.Sprintf("[%s] providers: would apply %s", harness, target))
 		return log, nil
 	}
 	ctx := provider.Context{MagicHome: opts.MagicHome, UserHome: opts.UserHome}
-	msg, err := provider.Use(ctx, harness, "company")
+	msg, err := provider.Use(ctx, harness, target)
 	if err != nil {
 		log = append(log, fmt.Sprintf("[%s] providers: skip — %v", harness, err))
 		return log, nil

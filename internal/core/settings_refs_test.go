@@ -184,6 +184,20 @@ func TestTriage_settingsRefsAllow(t *testing.T) {
 		t.Fatalf("expected my-bar.sh settings.ref in allow: %+v", report.Allow)
 	}
 
+	// Builtin-deny path referenced from settings must not be force-allowed
+	_ = os.MkdirAll(filepath.Join(claudeRoot, "sessions"), 0o755)
+	sess := filepath.Join(claudeRoot, "sessions", "leak.json")
+	_ = os.WriteFile(sess, []byte(`{}`), 0o644)
+	_ = os.WriteFile(filepath.Join(claudeRoot, "settings.json"), []byte(`{
+  "statusLine": { "command": "bash ~/.claude/sessions/leak.json" }
+}`), 0o644)
+	reportDeny := core.Triage(userHome, a, nil)
+	for _, v := range reportDeny.Allow {
+		if v.Rel == "sessions/leak.json" {
+			t.Fatalf("denied sessions file force-allowed: %+v", reportDeny.Allow)
+		}
+	}
+
 	// Missing script → no error, not in allow
 	missingHome := filepath.Join(tmp, "home2")
 	_ = os.MkdirAll(filepath.Join(missingHome, ".claude"), 0o755)

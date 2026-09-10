@@ -26,11 +26,12 @@ func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
 	return adapter.CapturePolicy{
 		Roots: []adapter.RootSpec{{ID: "main", RelHome: ".pi/agent"}},
 		Allow: []string{
-			"settings.json", "auth.json", "models.json", "keybindings.json", "trust.json",
+			"settings.json", "models.json", "keybindings.json", "trust.json",
 			"SYSTEM.md", "APPEND_SYSTEM.md", "AGENTS.md",
 			"extensions/**", "skills/**", "prompts/**", "themes/**", "agents/**",
 		},
 		Deny: []string{
+			"auth.json", // api_key / oauth tokens — not captured
 			"sessions/**", "bin/**", "npm/**", "git/**", "tmp/**",
 			"models-store.json", "pi-debug.log",
 		},

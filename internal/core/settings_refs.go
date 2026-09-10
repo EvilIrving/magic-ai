@@ -352,6 +352,9 @@ func followLocalConfigRefs(report *policy.Report, userHome string, a adapter.Ada
 			if overlay != nil && policy.MatchAny(rel, overlay.Exclude) {
 				continue
 			}
+			if decision, _ := policy.Classify(rel, a.CapturePolicy(), overlay); decision == "deny" {
+				continue
+			}
 			report.Unknown = removeVerdictByAbs(report.Unknown, abs)
 			report.Deny = removeVerdictByAbs(report.Deny, abs)
 

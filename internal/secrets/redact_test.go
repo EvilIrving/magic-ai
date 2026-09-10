@@ -62,6 +62,32 @@ func TestRedactReinjectRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRedactJSONCAndEnvRefs(t *testing.T) {
+	in := []byte(`{
+  // comment
+  "apiKey": "sk-live",
+  "key": "sk-oauth",
+  "access": "tok-access",
+  "nested": { "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp-secret" } },
+  "piKey": "$SHU_API_KEY",
+  "wbKey": "${DEEPSEEK_API_KEY}"
+}`)
+	r := RedactBytes("opencode.jsonc", in)
+	if !r.Redacted {
+		t.Fatal("expected redaction")
+	}
+	body := string(r.Data)
+	if strings.Contains(body, "sk-live") || strings.Contains(body, "ghp-secret") || strings.Contains(body, "tok-access") {
+		t.Fatalf("secret leaked: %s", body)
+	}
+	if !strings.Contains(body, "$SHU_API_KEY") || !strings.Contains(body, "${DEEPSEEK_API_KEY}") {
+		t.Fatalf("env refs rewritten: %s", body)
+	}
+	if r.Secrets["apiKey"] != "sk-live" || r.Secrets["key"] != "sk-oauth" {
+		t.Fatalf("secrets=%v", r.Secrets)
+	}
+}
+
 func TestStoreLoadSecrets(t *testing.T) {
 	dir := t.TempDir()
 	sec := map[string]string{"api_key": "secret-val"}

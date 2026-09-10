@@ -326,6 +326,12 @@ func TestWorkBuddyApplyWritesEnvKey(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(home, ".codebuddy"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(home, ".codebuddy", "models.json"), []byte(`{
+  "models": [{"id": "user-local", "name": "Local"}],
+  "availableModels": ["user-local"]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.MkdirAll(magic, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -348,6 +354,9 @@ func TestWorkBuddyApplyWritesEnvKey(t *testing.T) {
 	s := string(raw)
 	if !strings.Contains(s, "${DEEPSEEK_API_KEY}") || !strings.Contains(s, "chat/completions") {
 		t.Fatalf("unexpected models.json:\n%s", s)
+	}
+	if !strings.Contains(s, "user-local") {
+		t.Fatalf("user availableModels dropped:\n%s", s)
 	}
 	if _, err := (WorkBuddyWriter{}).Apply(ctx, ApplyRequest{Official: true}); err != nil {
 		t.Fatal(err)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"magic/internal/adapter"
 	"magic/internal/agents"
 	"magic/internal/catalog"
 	"magic/internal/core"
@@ -273,15 +274,21 @@ func cmdApply() *cobra.Command {
 				}
 				fmt.Printf("backup → %s\n", backupDir)
 			}
+			cfg, _ := core.LoadMagicConfig(core.NewPaths(mh).MagicYAML)
 			list := registry.List()
+			var enabled []adapter.Adapter
 			for _, a := range list {
 				if flagOnly != "" && string(a.ID()) != flagOnly {
+					continue
+				}
+				if flagOnly == "" && cfg != nil && !cfg.IsEnabled(string(a.ID())) {
 					continue
 				}
 				if !a.Implemented() {
 					fmt.Printf("[%s] skip (not implemented)\n", a.ID())
 					continue
 				}
+				enabled = append(enabled, a)
 				logs, err := core.ApplyAdapter(a, opts, backupDir)
 				if err != nil {
 					return err
@@ -290,7 +297,7 @@ func cmdApply() *cobra.Command {
 					fmt.Println(l)
 				}
 			}
-			skillLogs, err := core.ApplySkills(list, opts)
+			skillLogs, err := core.ApplySkills(enabled, opts)
 			if err != nil {
 				return err
 			}
@@ -301,7 +308,7 @@ func cmdApply() *cobra.Command {
 			for _, l := range skillLogs {
 				fmt.Println(l)
 			}
-			agentLogs, err := core.ApplyAgents(list, opts)
+			agentLogs, err := core.ApplyAgents(enabled, opts)
 			if err != nil {
 				return err
 			}
@@ -312,11 +319,11 @@ func cmdApply() *cobra.Command {
 			for _, l := range agentLogs {
 				fmt.Println(l)
 			}
-			provLogs, err := core.ApplyProviders(list, opts)
+			provLogs, err := core.ApplyProviders(enabled, opts)
 			if err != nil {
 				return err
 			}
-			fmt.Println("\n## providers projection (Claude / Pi)")
+			fmt.Println("\n## providers projection")
 			if len(provLogs) == 0 {
 				fmt.Println("(no provider projection)")
 			}

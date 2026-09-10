@@ -73,21 +73,57 @@ func client(cfg Config) *s3.Client {
 	})
 }
 
+func listVaultKeys(ctx context.Context, c *s3.Client, bucket string) ([]string, error) {
+	var keys []string
+	var token *string
+	for {
+		out, err := c.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+			Bucket:            aws.String(bucket),
+			Prefix:            aws.String("vault/"),
+			ContinuationToken: token,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, obj := range out.Contents {
+			if obj.Key != nil && *obj.Key != "" {
+				keys = append(keys, *obj.Key)
+			}
+		}
+		if out.IsTruncated == nil || !*out.IsTruncated || out.NextContinuationToken == nil {
+			break
+		}
+		token = out.NextContinuationToken
+	}
+	return keys, nil
+}
+
+// vaultDest maps object key vault/<rel> → path under magicHome. Rejects escapes.
+func vaultDest(magicHome, key string) (string, bool) {
+	if !strings.HasPrefix(key, "vault/") {
+		return "", false
+	}
+	rel := strings.TrimPrefix(key, "vault/")
+	if rel == "" || strings.HasSuffix(key, "/") {
+		return "", false
+	}
+	home := filepath.Clean(magicHome)
+	dst := filepath.Clean(filepath.Join(home, filepath.FromSlash(rel)))
+	sep := string(os.PathSeparator)
+	if dst != home && !strings.HasPrefix(dst, home+sep) {
+		return "", false
+	}
+	return dst, true
+}
+
 // Status lists object count/prefix under vault/.
 func Status(ctx context.Context, cfg Config) (string, error) {
 	c := client(cfg)
-	out, err := c.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket: aws.String(cfg.Bucket),
-		Prefix: aws.String("vault/"),
-	})
+	keys, err := listVaultKeys(ctx, c, cfg.Bucket)
 	if err != nil {
 		return "", err
 	}
-	n := 0
-	if out.KeyCount != nil {
-		n = int(*out.KeyCount)
-	}
-	return fmt.Sprintf("bucket=%s prefix=vault/ objects≈%d", cfg.Bucket, n), nil
+	return fmt.Sprintf("bucket=%s prefix=vault/ objects≈%d", cfg.Bucket, len(keys)), nil
 }
 
 // Push uploads magic home files under vault/ prefix.
@@ -125,23 +161,15 @@ func Push(ctx context.Context, cfg Config, magicHome string) error {
 // Pull downloads vault/ prefix into magic home.
 func Pull(ctx context.Context, cfg Config, magicHome string) error {
 	c := client(cfg)
-	out, err := c.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket: aws.String(cfg.Bucket),
-		Prefix: aws.String("vault/"),
-	})
+	keys, err := listVaultKeys(ctx, c, cfg.Bucket)
 	if err != nil {
 		return err
 	}
-	for _, obj := range out.Contents {
-		if obj.Key == nil {
+	for _, key := range keys {
+		dst, ok := vaultDest(magicHome, key)
+		if !ok {
 			continue
 		}
-		key := *obj.Key
-		rel := strings.TrimPrefix(key, "vault/")
-		if rel == "" || strings.HasSuffix(key, "/") {
-			continue
-		}
-		dst := filepath.Join(magicHome, filepath.FromSlash(rel))
 		res, err := c.GetObject(ctx, &s3.GetObjectInput{
 			Bucket: aws.String(cfg.Bucket),
 			Key:    aws.String(key),
@@ -153,7 +181,7 @@ func Pull(ctx context.Context, cfg Config, magicHome string) error {
 			res.Body.Close()
 			return err
 		}
-		f, err := os.Create(dst)
+		f, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 		if err != nil {
 			res.Body.Close()
 			return err

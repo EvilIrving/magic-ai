@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"magic/internal/secrets"
 )
 
 // configKeys are field-level keys extracted from ~/.claude.json on capture.
@@ -41,7 +43,7 @@ func ExtractClaudePartial(data []byte) ([]byte, error) {
 	return append(b, '\n'), nil
 }
 
-func captureClaudePartial(opts CaptureOptions, destRoot string, copied *[]string) error {
+func captureClaudePartial(opts CaptureOptions, destRoot string, copied *[]string, allSecrets map[string]string) error {
 	p := filepath.Join(opts.UserHome, ".claude.json")
 	st, err := os.Stat(p)
 	if err != nil {
@@ -59,8 +61,16 @@ func captureClaudePartial(opts CaptureOptions, destRoot string, copied *[]string
 		fmt.Fprintf(os.Stderr, "note: ~/.claude.json not valid JSON (%v); skipped partial extract\n", err)
 		return nil
 	}
+	rr := secrets.RedactBytes("claude.json.partial.json", partial)
+	out := rr.Data
+	if !rr.Redacted {
+		out = partial
+	}
+	for k, s := range rr.Secrets {
+		allSecrets[k] = s
+	}
 	dst := filepath.Join(destRoot, "claude.json.partial.json")
-	if err := AtomicWriteFile(dst, partial, 0o644); err != nil {
+	if err := AtomicWriteFile(dst, out, 0o600); err != nil {
 		return err
 	}
 	*copied = append(*copied, dst)
@@ -76,6 +86,10 @@ func applyClaudePartial(opts ApplyOptions, backupDir string) ([]string, error) {
 			return log, nil
 		}
 		return log, err
+	}
+	pass := applyPassphrase(opts)
+	if secMap, secErr := secrets.LoadSecrets(filepath.Join(opts.MagicHome, "secrets"), "claude", pass); secErr == nil && len(secMap) > 0 {
+		data = secrets.ReinjectBytes(data, secMap)
 	}
 	var partial map[string]any
 	if err := json.Unmarshal(data, &partial); err != nil {
@@ -101,7 +115,7 @@ func applyClaudePartial(opts ApplyOptions, backupDir string) ([]string, error) {
 	if _, err := os.Stat(dst); err == nil && backupDir != "" {
 		_ = BackupPath(dst, backupDir, "claude/_claude.json")
 	}
-	if err := AtomicWriteFile(dst, out, 0o644); err != nil {
+	if err := AtomicWriteFile(dst, out, 0o600); err != nil {
 		return log, err
 	}
 	log = append(log, "[claude] merged claude.json.partial.json → ~/.claude.json")

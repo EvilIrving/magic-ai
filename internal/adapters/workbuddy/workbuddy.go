@@ -25,15 +25,12 @@ func codebuddyRoot(home string) string { return filepath.Join(home, ".codebuddy"
 func workbuddyRoot(home string) string { return filepath.Join(home, ".workbuddy") }
 
 func (a *Adapter) Detect(home string) bool {
-	for _, root := range []string{codebuddyRoot(home), workbuddyRoot(home)} {
-		if st, err := os.Stat(root); err == nil && st.IsDir() {
-			return true
-		}
-		if _, err := os.Stat(filepath.Join(root, "models.json")); err == nil {
-			return true
-		}
+	root := codebuddyRoot(home)
+	if st, err := os.Stat(root); err == nil && st.IsDir() {
+		return true
 	}
-	return false
+	_, err := os.Stat(filepath.Join(root, "models.json"))
+	return err == nil
 }
 
 func (a *Adapter) CapturePolicy() adapter.CapturePolicy {

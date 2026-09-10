@@ -151,7 +151,11 @@ func CaptureAdapter(a adapter.Adapter, overlay *policy.Overlay, opts CaptureOpti
 			allSecrets[k] = s
 		}
 		dst := filepath.Join(destRoot, filepath.FromSlash(v.Rel))
-		if err := AtomicWriteFile(dst, out, 0o644); err != nil {
+		mode := os.FileMode(0o644)
+		if rr.Redacted || secretBearingName(v.Rel) {
+			mode = 0o600
+		}
+		if err := AtomicWriteFile(dst, out, mode); err != nil {
 			return report, copied, err
 		}
 		copied = append(copied, dst)
@@ -159,16 +163,16 @@ func CaptureAdapter(a adapter.Adapter, overlay *policy.Overlay, opts CaptureOpti
 			warned = true
 		}
 	}
+	// Claude: field-level extract of ~/.claude.json → claude.json.partial.json
+	if a.ID() == "claude" {
+		if err := captureClaudePartial(opts, destRoot, &copied, allSecrets); err != nil {
+			return report, copied, err
+		}
+	}
 	if w, err := secrets.StoreSecrets(filepath.Join(opts.MagicHome, "secrets"), string(a.ID()), allSecrets, pass); err != nil {
 		return report, copied, err
 	} else if w || warned {
 		fmt.Fprintf(os.Stderr, "warning: secrets redacted in mirror but MAGIC_PASSPHRASE unset — raw values not stored in secrets/\n")
-	}
-	// Claude: field-level extract of ~/.claude.json → claude.json.partial.json
-	if a.ID() == "claude" {
-		if err := captureClaudePartial(opts, destRoot, &copied); err != nil {
-			return report, copied, err
-		}
 	}
 	return report, copied, nil
 }

@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var keyRE = regexp.MustCompile(`(?i)(api[_-]?key|auth[_-]?token|password|secret)`)
+var keyRE = regexp.MustCompile(`(?i)((?:api[_-]?key)|(?:(?:auth|access|refresh)[_-]?token)|password|secret|^key$|^access$|^refresh$|^token$|authorization)`)
 
 // PlaceholderPrefix marks reinjectable secret slots in mirrored files.
 const PlaceholderPrefix = "${MAGIC_SECRET:"
@@ -27,17 +27,94 @@ type RedactResult struct {
 func RedactBytes(path string, data []byte) RedactResult {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".json":
+	case ".json", ".jsonc":
+		if ext == ".jsonc" {
+			data = StripJSONC(data)
+		}
 		return redactJSON(data)
 	case ".toml":
 		return redactTOML(data)
 	default:
-		trim := strings.TrimSpace(string(data))
+		stripped := StripJSONC(data)
+		trim := strings.TrimSpace(string(stripped))
 		if strings.HasPrefix(trim, "{") || strings.HasPrefix(trim, "[") {
-			return redactJSON(data)
+			return redactJSON(stripped)
 		}
 		return RedactResult{Data: data}
 	}
+}
+
+// StripJSONC removes // and /* */ comments outside of strings.
+func StripJSONC(data []byte) []byte {
+	s := string(data)
+	var b strings.Builder
+	b.Grow(len(s))
+	inStr, escape := false, false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if inStr {
+			b.WriteByte(c)
+			if escape {
+				escape = false
+			} else if c == '\\' {
+				escape = true
+			} else if c == '"' {
+				inStr = false
+			}
+			continue
+		}
+		if c == '"' {
+			inStr = true
+			b.WriteByte(c)
+			continue
+		}
+		if c == '/' && i+1 < len(s) {
+			switch s[i+1] {
+			case '/':
+				i += 2
+				for i < len(s) && s[i] != '\n' {
+					i++
+				}
+				if i < len(s) {
+					b.WriteByte('\n')
+				}
+				continue
+			case '*':
+				i += 2
+				for i+1 < len(s) && !(s[i] == '*' && s[i+1] == '/') {
+					i++
+				}
+				if i+1 < len(s) {
+					i++
+				}
+				continue
+			}
+		}
+		b.WriteByte(c)
+	}
+	return []byte(b.String())
+}
+
+func isEnvPlaceholder(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return true
+	}
+	if strings.HasPrefix(s, PlaceholderPrefix) {
+		return true
+	}
+	if strings.HasPrefix(s, "${") && strings.HasSuffix(s, "}") {
+		return true
+	}
+	if len(s) >= 2 && s[0] == '$' {
+		for _, r := range s[1:] {
+			if (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func redactJSON(data []byte) RedactResult {
@@ -68,7 +145,7 @@ func walkRedact(v any, prefix string, secrets map[string]string) bool {
 				path = prefix + "." + k
 			}
 			if keyRE.MatchString(k) {
-				if s, ok := val.(string); ok && s != "" && !strings.HasPrefix(s, "${") {
+				if s, ok := val.(string); ok && s != "" && !isEnvPlaceholder(s) {
 					secrets[path] = s
 					t[k] = PlaceholderPrefix + path + PlaceholderSuffix
 					changed = true
@@ -99,7 +176,7 @@ func redactTOML(data []byte) RedactResult {
 			continue
 		}
 		key, val := m[2], m[3]
-		if val == "" || strings.HasPrefix(val, "${") {
+		if val == "" || isEnvPlaceholder(val) {
 			continue
 		}
 		secrets[key] = val

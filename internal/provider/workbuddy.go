@@ -64,17 +64,11 @@ func (w WorkBuddyWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
 		kept := filterNonMagicWorkBuddyModels(root["models"])
 		merged := append(kept, models...)
 		root["models"] = merged
-		ids := make([]any, 0, len(models))
-		for _, item := range models {
-			m, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			if id, ok := m["id"].(string); ok {
-				ids = append(ids, id)
-			}
+		var prevAvail []any
+		if avail, ok := root["availableModels"].([]any); ok {
+			prevAvail = filterMagicAvailable(avail)
 		}
-		root["availableModels"] = ids
+		root["availableModels"] = unionModelIDs(prevAvail, modelIDs(merged))
 	}
 
 	out, err := json.MarshalIndent(root, "", "  ")
@@ -186,6 +180,36 @@ func buildWorkBuddyModels(req ApplyRequest, resolve func(pickID string) (modelfi
 			"_magic":           true,
 			"_sourcePick":      id,
 		})
+	}
+	return out
+}
+
+func modelIDs(models []any) []any {
+	var out []any
+	for _, item := range models {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if id, ok := m["id"].(string); ok && id != "" {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func unionModelIDs(parts ...[]any) []any {
+	seen := map[string]bool{}
+	var out []any
+	for _, part := range parts {
+		for _, v := range part {
+			s, _ := v.(string)
+			if s == "" || seen[s] {
+				continue
+			}
+			seen[s] = true
+			out = append(out, s)
+		}
 	}
 	return out
 }

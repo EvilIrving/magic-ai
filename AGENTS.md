@@ -37,7 +37,7 @@ Magic 是 **AI harness 配置管理器**（Go CLI，默认配置库 `~/.magic-ai
 - `apply` / `provider use` 投影：Claude settings env（AUTH_TOKEN 主）；Pi / WorkBuddy `$KEY_ENV`；OpenCode `opencode.json` 明文 apiKey；Codex `models.json` + `model_catalog_json`（仅第三方）。Grok/Codex 日常入口仍是 `magic provider use`。见 `docs/harness-matrix.md`
 - **Apply 元数据 enrichment**：每个 pick 经 `modelfile.ResolvePickMeta` / `FindFuzzy` 查 `$MAGIC_HOME/registry/models.json`，投影到 Implemented harness（Pi 模型行、Grok context/efforts、Claude 角色/`CLAUDE_CODE_*`、Codex models.json + reasoning effort）。缺 meta → 默认值，不失败。先 `magic registry sync --source models.dev`。
 - Config local refs：allow 的 `settings.json` / `settings.local.json` 跟随本地路径引用（`settings.ref`）；Codex `config.toml` 保守抽取 harness 内路径（`config.ref`）；capture 时把 `$HOME/<RelHome>` 折成 `~/…`。见 `internal/core/settings_refs.go`
-- Capture allow 要点：Codex `hooks.json`/`themes/**`；Grok `hooks/**`/`commands/**`/`disabled-hooks`；Pi `themes/**` yes，`models-store.json` deny；OpenCode 不收 auth.json；Copilot deny `config.json`；Gemini deny `.env`；Trae 只收 `~/.trae`。未列项默认不收
+- Capture allow 要点：Codex `hooks.json`/`themes/**`；Grok `hooks/**`/`commands/**`/`disabled-hooks`；Pi `themes/**` yes，`models-store.json` / `auth.json` deny；OpenCode 不收 auth.json；Copilot deny `config.json`；Gemini deny `.env`；Trae 只收 `~/.trae`。未列项默认不收
 
 ## 实现位置
 

@@ -76,10 +76,17 @@ func ApplyAdapter(a adapter.Adapter, opts ApplyOptions, backupDir string) ([]str
 			if err != nil {
 				return err
 			}
+			reinjected := false
 			if len(secMap) > 0 {
-				data = secrets.ReinjectBytes(data, secMap)
+				next := secrets.ReinjectBytes(data, secMap)
+				reinjected = string(next) != string(data)
+				data = next
 			}
-			if err := AtomicWriteFile(dst, data, 0o644); err != nil {
+			mode := os.FileMode(0o644)
+			if reinjected || secretBearingName(rel) {
+				mode = 0o600
+			}
+			if err := AtomicWriteFile(dst, data, mode); err != nil {
 				return err
 			}
 		}

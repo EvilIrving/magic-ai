@@ -1,5 +1,13 @@
 # Magic NOTES
 
+## Review fixes (2026-09-10)
+
+- Redact: jsonc comments, `$KEY_ENV` skip, `key`/`access`/`refresh`/`*_token`; Pi deny `auth.json`; Claude partial redacts + reinjects.
+- Apply: secret files 0600; skills skip unmanaged links; honor `adapters.enabled`; Claude apply uses `BuildClaudeEnvFromProvider`.
+- R2: ListObjectsV2 pagination; reject `vault/../` escapes.
+- WorkBuddy: union `availableModels`; Detect only `.codebuddy`.
+- OpenCode SwitchWriter prefers existing jsonc and parses comments.
+
 ## Docs pass (2026-09-10)
 
 - `docs/README.md` 文档目录；`getting-started.md` 改为中文对外入门（含当前 harness / R2 `magic-ai`）。

@@ -31,12 +31,22 @@ func TestEnsureLinkCreateAndRepair(t *testing.T) {
 		t.Fatalf("idempotent: %s %v", action, err)
 	}
 
-	// wrong target
+	// wrong target — unmanaged symlink is kept
 	other := filepath.Join(tmp, "other")
 	_ = os.MkdirAll(other, 0o755)
 	_ = os.Remove(link)
 	_ = os.Symlink(other, link)
 	action, err = EnsureLink(link, skill, false)
+	if err != nil || action != "skip-unmanaged" {
+		t.Fatalf("unmanaged: %s %v", action, err)
+	}
+	got, _ := os.Readlink(link)
+	absOther, _ := filepath.Abs(other)
+	absGot, _ := filepath.Abs(got)
+	if absGot != absOther {
+		t.Fatalf("unmanaged link rewritten: %s", absGot)
+	}
+	action, err = EnsureLinkForce(link, skill, false, true)
 	if err != nil || (action != "repair-symlink" && action != "repair-copy" && action != "repair-junction" && action != "repair-link") {
 		t.Fatalf("repair: %s %v", action, err)
 	}

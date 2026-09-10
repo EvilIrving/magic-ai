@@ -46,10 +46,15 @@ func ListSkillDirs(source string) ([]string, error) {
 	return names, nil
 }
 
-// EnsureLink creates or repairs a link at linkPath pointing to target.
-// Strategy: symlink → (Windows) junction → copy.
+// EnsureLink creates a link at linkPath pointing to target.
+// Unmanaged existing symlinks are left in place (skip-unmanaged) unless force is used via EnsureLinkForce.
 // Never deletes a real directory/file.
 func EnsureLink(linkPath, target string, dryRun bool) (action string, err error) {
+	return EnsureLinkForce(linkPath, target, dryRun, false)
+}
+
+// EnsureLinkForce is EnsureLink with optional replacement of unmanaged symlinks.
+func EnsureLinkForce(linkPath, target string, dryRun, force bool) (action string, err error) {
 	absTarget, err := filepath.Abs(target)
 	if err != nil {
 		return "", err
@@ -68,6 +73,9 @@ func EnsureLink(linkPath, target string, dryRun bool) (action string, err error)
 				if curAbs == absTarget {
 					return "ok", nil
 				}
+			}
+			if !force {
+				return "skip-unmanaged", nil
 			}
 			repair = true
 			if dryRun {

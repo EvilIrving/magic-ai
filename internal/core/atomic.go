@@ -4,7 +4,20 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+func secretBearingName(rel string) bool {
+	base := strings.ToLower(filepath.Base(rel))
+	switch base {
+	case "auth.json", "settings.json", "settings.local.json",
+		"opencode.json", "opencode.jsonc", "mcp.json", "mcp-config.json",
+		"models.json", "claude.json.partial.json":
+		return true
+	}
+	ext := strings.ToLower(filepath.Ext(rel))
+	return ext == ".env" || ext == ".toml"
+}
 
 // AtomicWriteFile writes data via temp + rename.
 func AtomicWriteFile(path string, data []byte, mode os.FileMode) error {

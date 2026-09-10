@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"magic/internal/catalog"
+	"magic/internal/secrets"
 )
 
 const opencodeMagicPrefix = "magic-"
@@ -22,7 +23,16 @@ func (OpenCodeWriter) Implemented() bool    { return true }
 func (OpenCodeWriter) BackupPrefix() string { return "opencode" }
 func (OpenCodeWriter) BackupExt() string    { return ".json" }
 func (OpenCodeWriter) ConfigPath(userHome string) string {
-	return filepath.Join(userHome, ".config", "opencode", "opencode.json")
+	dir := filepath.Join(userHome, ".config", "opencode")
+	jsonc := filepath.Join(dir, "opencode.jsonc")
+	jsonp := filepath.Join(dir, "opencode.json")
+	if _, err := os.Stat(jsonp); err == nil {
+		return jsonp
+	}
+	if _, err := os.Stat(jsonc); err == nil {
+		return jsonc
+	}
+	return jsonp
 }
 
 func opencodeProviderID(name string) string {
@@ -42,7 +52,7 @@ func (w OpenCodeWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
 
 	root := map[string]any{}
 	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &root); err != nil {
+		if err := json.Unmarshal(secrets.StripJSONC(raw), &root); err != nil {
 			return "", fmt.Errorf("parse opencode.json: %w", err)
 		}
 	}
@@ -141,7 +151,7 @@ func (w OpenCodeWriter) Status(ctx Context) string {
 		return b.String()
 	}
 	var root map[string]any
-	_ = json.Unmarshal(raw, &root)
+	_ = json.Unmarshal(secrets.StripJSONC(raw), &root)
 	fmt.Fprintf(&b, "Model            : %v\n", root["model"])
 	magic := []string{}
 	if provObj, ok := root["provider"].(map[string]any); ok {
