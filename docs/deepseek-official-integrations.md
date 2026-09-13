@@ -3,7 +3,7 @@
 Sources (2026-09-09):
 - https://api-docs.deepseek.com/zh-cn/quick_start/agent_integrations/claude_code
 - https://api-docs.deepseek.com/zh-cn/quick_start/agent_integrations/codex
-- Setup script: https://cdn.deepseek.com/api-docs/codex-deepseek-setup.sh (cached under third_party/deepseek-integrations/)
+- Setup script: https://cdn.deepseek.com/api-docs/codex-deepseek-setup.sh
 
 ## Claude Code
 Third-party via Anthropic-compatible endpoint:

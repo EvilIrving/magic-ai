@@ -54,11 +54,10 @@
 
 - Future UX (deferred): native Magic menubar/tray + global hotkey palette — not Raycast/Alfred.
 
-## Skills UX (skillmesh port)
-- `magic skills` mirrors skillmesh: sync/status/list/doctor/clean/init/import/adopt/enable/disable.
+## Skills UX
+- `magic skills`: sync/status/list/doctor/clean/init/import/adopt/enable/disable.
 - Global source: `$MAGIC_HOME/packs/skills` only (never ~/.agents/skills as Magic global central).
 - Project source: `<project>/.agents/skills`; sync via `magic skills sync --scope project`.
-- Reference script: `third_party/skillmesh.sh`.
 
 ## OpenRouter registry + providers copy (2026-09-09)
 
@@ -86,7 +85,6 @@
 - Keys: `magic secrets set` / `magic provider env set` → `secrets/providers.json.enc` (MAGIC_PASSPHRASE).
 - Backups: `$MAGIC_HOME/backups/<harness>/` limit 3.
 - `magic provider test` is harness-agnostic HTTP against provider endpoint (httptest in unit tests).
-- Reference goldens only: `third_party/prompts-can-providers/{claudes,gpts,groks,pi}` — scripts superseded as daily entrypoints.
 - Aliases: `magic use`, `magic test`.
 
 ## Capture allow + config refs (2026-09-09)
@@ -114,7 +112,7 @@
 
 ## DeepSeek-aligned Claude / Codex projection (2026-09-09)
 
-- Reference: `docs/deepseek-official-integrations.md` + `third_party/deepseek-integrations/codex-deepseek-setup.sh`.
+- Reference: `docs/deepseek-official-integrations.md`.
 - **Claude** third-party: `ANTHROPIC_AUTH_TOKEN` primary (+ `ANTHROPIC_API_KEY` same value); role envs incl. `CLAUDE_CODE_SUBAGENT_MODEL`; optional effort/auto-compact from registry meta; official clears `ANTHROPIC_*` + `CLAUDE_CODE_*`.
 - **Codex** third-party: writes Codex-native `~/.codex/models.json` (minimal schema, no instruction blobs) + sets `model_catalog_json` **only** for third-party; `env_key` never plaintext bearer. Official removes catalog_json + deletes Magic `models.json`.
 - Seed `deepseek`: anthropic `https://api.deepseek.com/anthropic`, responses `https://api.deepseek.com/`, Models pro/flash (+ subagent).

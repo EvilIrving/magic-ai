@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// DefaultAgents are skillmesh-compatible skill sync targets.
+// DefaultAgents are the agent skill sync targets.
 // Includes cursor (skills-only) and opencode (also a Magic adapter).
 var DefaultAgents = []string{"claude", "codex", "cursor", "pi", "grok", "opencode", "copilot", "trae"}
 
@@ -58,7 +58,7 @@ func GlobalTargetDir(agent, userHome string) (string, error) {
 	case "cursor":
 		return filepath.Join(userHome, ".cursor", "skills"), nil
 	case "pi":
-		// Magic adapter: ~/.pi/agent/skills (not skillmesh's ~/.pi/skills)
+		// Magic adapter: ~/.pi/agent/skills
 		return filepath.Join(userHome, ".pi", "agent", "skills"), nil
 	case "grok":
 		return filepath.Join(userHome, ".grok", "skills"), nil
@@ -73,7 +73,7 @@ func GlobalTargetDir(agent, userHome string) (string, error) {
 	}
 }
 
-// ProjectTargetDir returns <project>/.{agent}/skills (skillmesh project layout).
+// ProjectTargetDir returns <project>/.{agent}/skills (project layout).
 func ProjectTargetDir(agent, projectRoot string) (string, error) {
 	dot, err := AgentDotDir(agent)
 	if err != nil {
@@ -82,7 +82,7 @@ func ProjectTargetDir(agent, projectRoot string) (string, error) {
 	return filepath.Join(projectRoot, dot, "skills"), nil
 }
 
-// ResolveProjectRoot mirrors skillmesh: --project DIR, else git root, else cwd.
+// ResolveProjectRoot: --project DIR, else git root, else cwd.
 func ResolveProjectRoot(projectArg, cwd string) (string, error) {
 	if projectArg != "" {
 		abs, err := filepath.Abs(projectArg)

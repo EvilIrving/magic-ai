@@ -17,7 +17,7 @@ const (
 	ScopeAll     Scope = "all"
 )
 
-// Options configures a skillmesh-style operation.
+// Options configures a skill sync operation.
 type Options struct {
 	MagicHome     string // required for global / include-global
 	UserHome      string // global target root (usually $HOME)
@@ -445,7 +445,7 @@ func runScopes(o Options, fn func(Scope, *scopeCtx, *Result) error) (*Result, er
 	return r, firstErr
 }
 
-// Sync mirrors skillmesh sync.
+// Sync projects skills from the source dir into agent skill dirs.
 func Sync(o Options) (*Result, error) {
 	return runScopes(o, func(sc Scope, ctx *scopeCtx, r *Result) error {
 		if !ctx.sourceAvailable() {
@@ -476,7 +476,7 @@ func Sync(o Options) (*Result, error) {
 	})
 }
 
-// Status mirrors skillmesh status (read-only).
+// Status reports per-agent link state (read-only).
 func Status(o Options) (*Result, error) {
 	return runScopes(o, func(sc Scope, ctx *scopeCtx, r *Result) error {
 		if err := ctx.buildEffective(o.Skills); err != nil {
@@ -963,7 +963,7 @@ func Adopt(o Options) (*Result, error) {
 	})
 }
 
-// SummaryLine formats skillmesh-style completion stats.
+// SummaryLine formats completion stats.
 func SummaryLine(cmd string, s Stats) string {
 	switch cmd {
 	case "sync", "clean", "remove", "disable":

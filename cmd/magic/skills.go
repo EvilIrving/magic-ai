@@ -90,7 +90,7 @@ func printResult(r *skills.Result) {
 func cmdSkills() *cobra.Command {
 	root := &cobra.Command{
 		Use:          "skills",
-		Short:        "Manage skills (skillmesh-style sync into agent skill dirs)",
+		Short:        "Manage skills (sync into each agent's skill dirs)",
 		SilenceUsage: true,
 		Long: `Skills source of truth:
   global:  $MAGIC_HOME/packs/skills  (default MAGIC_HOME=~/.magic-ai)
@@ -311,7 +311,7 @@ Targets: claude, codex, cursor, pi, grok, opencode, copilot, trae
 		if err != nil {
 			return err
 		}
-		fmt.Println("Skills (skillmesh-style)")
+		fmt.Println("Skills")
 		fmt.Printf("  global source:  %s\n", skills.CentralDir(mh))
 		fmt.Println("  project source: <project>/.agents/skills")
 		fmt.Println("  targets:        claude, codex, cursor, pi, grok")

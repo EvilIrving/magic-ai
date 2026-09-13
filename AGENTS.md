@@ -21,7 +21,7 @@ Magic 是 **一份配置、投到多个 AI coding harness** 的 Go CLI。
 | **跨 harness** | skill、MCP、API / 模型 | 库里一份；apply 时译成 Claude / Pi / Grok / OpenCode… 各自的格式写进已有文件 |
 | **某 harness 自己的自定义** | 如 Pi 的 `themes/**`、`AGENTS.md` | 属于用户自定义配置，收进库是为了换电脑时还给**同一个** harness。不必译成别的工具的 theme |
 
-前代 **skillmesh** 只做 Skill 同步。Magic 覆盖 skill、MCP、API，外加这类 per-harness 自定义配置的跨机备份。
+Magic 不只同步 skill：覆盖 skill、MCP、API，外加这类 per-harness 自定义配置的跨机备份。
 
 **目的 vs 手段：** 目的是上面两类都进配置库，再能写回 / 同步。进库只能靠手改 / `skills` / `catalog` / `secrets`（capture 已删）。跨 harness 那层，Pi 的 5 个模型必须能写成 Grok / OpenCode 的格式，只把 `models.json` 原样拷回 Pi 不够。per-harness 自定义那层，把 Pi theme / `AGENTS.md` 按文件放进 `packs/harness/<id>/` 再放回去，就是对的手段。
 
@@ -54,7 +54,7 @@ Magic 是 **一份配置、投到多个 AI coding harness** 的 Go CLI。
 ## 命令地图（使用视角）
 
 - 适配器：`magic adapters` / `magic status`
-- Skills（skillmesh 级 UX）：`magic skills list|status|doctor|sync|…`，支持 `--scope project`
+- Skills：`magic skills list|status|doctor|sync|…`，支持 `--scope project`
 - 配置库 → harness：`magic apply`（达成目的的出口）
 - 多机备份配置库：`magic sync push|pull|status`（需 `MAGIC_R2_*`；git 私有库为备选）
 - 进配置库：手改、`skills` / `catalog` / `secrets`（结果要能变成可投影的 Magic 数据）
@@ -71,7 +71,6 @@ Magic 是 **一份配置、投到多个 AI coding harness** 的 Go CLI。
 - 内置 provider 模板：`internal/provider/builtin/providers.yaml`（go:embed，默认目录；见该目录 `README.md`）
 - 产品/用户文档：`docs/`（见 `docs/README.md`）
 - 原 python-magic 需求说明书若不在工作区，以本文件 + `docs/` 为准
-- skillmesh 参考副本：`third_party/skillmesh.sh`
 
 ## Provider switch 架构
 
@@ -79,7 +78,6 @@ Magic 是 **一份配置、投到多个 AI coding harness** 的 Go CLI。
 2. Semantics: `official | <providerName>`；`company` → active only
 3. `internal/provider.SwitchWriter` per harness（Claude/Codex/Grok/Pi/OpenCode/WorkBuddy）；gemini/copilot/trae share stub interface（仅 apply）
 4. CLI thin over (1)+(3)；`test` HTTP harness-agnostic
-5. `third_party/prompts-can-providers/*` = reference goldens only（scripts retired as entry）
 
 ## Registry / copy / providers 投影
 
@@ -125,7 +123,7 @@ Magic 是 **一份配置、投到多个 AI coding harness** 的 Go CLI。
 1. `go test ./...` 与 `go build -o magic ./cmd/magic` 保持通过。
 2. apply 的产品行为是把配置库里的 skill / MCP / API **写进** harness 已有文件。**写回一律字段级合并（结构化文件按键、一文件一项按项），不整文件覆盖**。冲突（A 机 5 个模型 vs B 机 3 个）比的是记录，不是整份 json 当黑盒。当前冲突检测未做（勿假装已有）。收外部文件进库用 `magic add path`。
 3. skills 受管链接：永不删除真实目录；冲突 = 真目录或非受管链接。
-4. Cursor 产品适配器按产品决定跳过；skills 目标里仍可有 cursor（与 skillmesh 一致）。**不做 windsurf、roo**（均停运）。
+4. Cursor 产品适配器按产品决定跳过；skills 目标里仍可有 cursor。**不做 windsurf、roo**（均停运）。
 5. 跟手入口：自研菜单栏/热键，不绑第三方启动器（尚未实现）。
 
 ## 文档索引

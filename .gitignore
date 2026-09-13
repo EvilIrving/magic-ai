@@ -3,5 +3,7 @@
 testdata/demo-lib/
 testdata/demo-home/
 .DS_Store
+.AppleDouble/
+._*
 
 .DS_Store
