@@ -12,19 +12,6 @@ type Caps struct {
 	Themes bool
 }
 
-// RootSpec is a capture/apply root relative to $HOME.
-type RootSpec struct {
-	ID      string // "main", "userdata", …
-	RelHome string // e.g. ".pi/agent"
-}
-
-// CapturePolicy is the adapter builtin allow/deny rules.
-type CapturePolicy struct {
-	Roots []RootSpec
-	Allow []string
-	Deny  []string
-}
-
 // Drift is a status difference between library and local.
 type Drift struct {
 	Adapter ID
@@ -33,7 +20,7 @@ type Drift struct {
 	Detail  string
 }
 
-// Result is an apply/capture outcome for one adapter.
+// Result is an apply outcome for one adapter.
 type Result struct {
 	Adapter ID
 	OK      bool
@@ -50,7 +37,6 @@ type Adapter interface {
 	Implemented() bool
 	Caps() Caps
 	Detect(home string) bool
-	CapturePolicy() CapturePolicy
 	SkillsDir(home string) string  // empty if no skills projection
 	AgentsDir(home string) string  // empty if no sub-agent projection
 	MirrorRoot(home string) string // primary mirror root for apply (rel to home abs)

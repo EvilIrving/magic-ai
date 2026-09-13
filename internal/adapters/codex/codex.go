@@ -22,16 +22,6 @@ func (a *Adapter) Detect(home string) bool {
 	st, err := os.Stat(filepath.Join(home, ".codex"))
 	return err == nil && st.IsDir()
 }
-func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
-	return adapter.CapturePolicy{
-		Roots: []adapter.RootSpec{{ID: "main", RelHome: ".codex"}},
-		Allow: []string{
-			"config.toml", "AGENTS.md", "rules/**", "skills/**", "agents/**",
-			"hooks.json", "themes/**",
-		},
-		Deny: []string{"sessions/**", "*.sqlite", "*.sqlite*", "cache/**", "logs/**"},
-	}
-}
 func (a *Adapter) SkillsDir(home string) string {
 	return filepath.Join(home, ".codex", "skills")
 }

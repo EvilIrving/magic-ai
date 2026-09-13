@@ -13,7 +13,6 @@ import (
 	"magic/internal/agents"
 	"magic/internal/catalog"
 	"magic/internal/core"
-	"magic/internal/policy"
 	"magic/internal/registry"
 	magsync "magic/internal/sync"
 )
@@ -33,7 +32,7 @@ func main() {
 
 环境变量:
   MAGIC_HOME / MAGIC_VAULT  配置库路径（默认 ~/.magic-ai）
-  MAGIC_PASSPHRASE          加解密 secrets/（capture/apply reinject + provider keys for copy）
+  MAGIC_PASSPHRASE          仅 sync push/pull：含密钥文件 ↔ 云端 .enc；日常命令不需要
   MAGIC_R2_*                Cloudflare R2 同步凭证
 
 "agents" 命令 = 配置库 packs/agents 里的 sub-agent（不是独立 harness）。
@@ -47,7 +46,6 @@ Skill 真相源 = $MAGIC_HOME/packs/skills（默认 ~/.magic-ai）。
 	root.AddCommand(cmdInit())
 	root.AddCommand(cmdAdapters())
 	root.AddCommand(cmdStatus())
-	root.AddCommand(cmdCapture())
 	root.AddCommand(cmdApply())
 	root.AddCommand(cmdSync())
 	root.AddCommand(cmdCatalog())
@@ -57,6 +55,7 @@ Skill 真相源 = $MAGIC_HOME/packs/skills（默认 ~/.magic-ai）。
 	root.AddCommand(cmdAgents())
 	root.AddCommand(cmdSkills())
 	root.AddCommand(cmdProvider())
+	root.AddCommand(cmdAdd())
 	root.AddCommand(cmdUseAlias())
 	root.AddCommand(cmdTestAlias())
 
@@ -106,7 +105,7 @@ func cmdAdapters() *cobra.Command {
 		Short: "列出 harness 适配器",
 		Run: func(cmd *cobra.Command, args []string) {
 			w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tNAME\tIMPLEMENTED\tSKILLS\tAGENTS\tMCP")
+			fmt.Fprintln(w, "ID\tNAME\tIMPLEMENTED\tSKILLS\tSUB-AGENT\tMCP")
 			for _, a := range registry.List() {
 				c := a.Caps()
 				fmt.Fprintf(w, "%s\t%s\t%v\t%v\t%v\t%v\n",
@@ -154,102 +153,6 @@ func cmdStatus() *cobra.Command {
 	}
 	c.Flags().StringVar(&flagHome, "home", "", "user home to scan (fixture)")
 	return c
-}
-
-func cmdCapture() *cobra.Command {
-	c := &cobra.Command{
-		Use:   "capture",
-		Short: "扫描 harness 根 → 分类 → 将 allow 写入配置库",
-		RunE:  runCapture,
-	}
-	c.Flags().BoolVar(&flagDryRun, "dry-run", false, "仅分类，不复制")
-	c.Flags().StringVar(&flagOnly, "only", "", "仅此 adapter id")
-	c.Flags().StringVar(&flagHome, "home", "", "user home（fixture）")
-
-	approve := &cobra.Command{
-		Use:   "approve <adapter> <rel>",
-		Short: "将路径加入 capture.overlay.yaml include",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return editOverlay(args[0], args[1], true)
-		},
-	}
-	deny := &cobra.Command{
-		Use:   "deny <adapter> <rel>",
-		Short: "将路径加入 capture.overlay.yaml exclude",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return editOverlay(args[0], args[1], false)
-		},
-	}
-	c.AddCommand(approve, deny)
-	return c
-}
-
-func editOverlay(adapterID, rel string, approve bool) error {
-	mh, err := resolveMagicHome()
-	if err != nil {
-		return err
-	}
-	path := core.NewPaths(mh).Overlay
-	ov, err := policy.LoadOverlay(path)
-	if err != nil {
-		return err
-	}
-	if approve {
-		ov.Approve(adapterID, rel)
-		fmt.Printf("approved %s/%s → user.include\n", adapterID, rel)
-	} else {
-		ov.DenyPath(adapterID, rel)
-		fmt.Printf("denied %s/%s → user.exclude\n", adapterID, rel)
-	}
-	return policy.SaveOverlay(path, ov)
-}
-
-func runCapture(cmd *cobra.Command, args []string) error {
-	mh, err := resolveMagicHome()
-	if err != nil {
-		return err
-	}
-	uh, err := core.UserHome(flagHome)
-	if err != nil {
-		return err
-	}
-	if !flagDryRun {
-		if err := core.InitSkeleton(mh); err != nil {
-			return err
-		}
-	}
-	ov, err := policy.LoadOverlay(core.NewPaths(mh).Overlay)
-	if err != nil {
-		return err
-	}
-	cfg, _ := core.LoadMagicConfig(core.NewPaths(mh).MagicYAML)
-	opts := core.CaptureOptions{MagicHome: mh, UserHome: uh, DryRun: flagDryRun, Only: flagOnly}
-	for _, a := range registry.List() {
-		if !a.Implemented() {
-			continue
-		}
-		if flagOnly != "" && string(a.ID()) != flagOnly {
-			continue
-		}
-		if cfg != nil && !cfg.IsEnabled(string(a.ID())) && flagOnly == "" {
-			continue
-		}
-		report, copied, err := core.CaptureAdapter(a, ov, opts)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("\n## adapter %s\n", a.ID())
-		fmt.Print(core.FormatReport(report))
-		if !flagDryRun {
-			fmt.Printf("copied %d files → %s\n", len(copied), filepath.Join(mh, a.LibraryMirrorRel()))
-			for _, p := range copied {
-				fmt.Printf("  %s\n", p)
-			}
-		}
-	}
-	return nil
 }
 
 func cmdApply() *cobra.Command {
@@ -363,7 +266,7 @@ func cmdSync() *cobra.Command {
 	})
 	c.AddCommand(&cobra.Command{
 		Use:   "push",
-		Short: "上传配置库到 R2",
+		Short: "上传配置库到 R2（含密钥文件加密成 .enc）",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, ok, msg := magsync.FromEnv()
 			if !ok {
@@ -383,7 +286,7 @@ func cmdSync() *cobra.Command {
 	})
 	c.AddCommand(&cobra.Command{
 		Use:   "pull",
-		Short: "从 R2 下载配置库",
+		Short: "从 R2 下载配置库（.enc 解密为本地明文）",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, ok, msg := magsync.FromEnv()
 			if !ok {
@@ -428,7 +331,7 @@ func cmdCatalog() *cobra.Command {
 func cmdAgents() *cobra.Command {
 	return &cobra.Command{
 		Use:   "agents",
-		Short: "列出配置库 sub-agent 与各适配器 Caps.Agents 支持情况",
+		Short: "列出配置库 sub-agent 与各适配器支持情况",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mh, err := resolveMagicHome()
 			if err != nil {
@@ -446,7 +349,7 @@ func cmdAgents() *cobra.Command {
 			for _, n := range names {
 				fmt.Printf("  - %s\n", n)
 			}
-			fmt.Println("\nCaps.Agents adapters → AgentsDir:")
+			fmt.Println("\nSub-agent adapters → dir:")
 			uh, _ := core.UserHome("")
 			for _, a := range registry.List() {
 				if !a.Implemented() || !a.Caps().Agents {

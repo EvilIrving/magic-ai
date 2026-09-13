@@ -22,10 +22,11 @@ func cmdCopy() *cobra.Command {
 		Long: `Copy non-secret provider fields to stdout (clipboard-friendly).
 
 Reads $MAGIC_HOME/providers.yaml. Each provider's key_env is a logical index
-into encrypted $MAGIC_HOME/secrets/providers.json.enc (not a process env var).
+into local plaintext $MAGIC_HOME/secrets/providers.json (not a process env var).
+.enc is the cloud state of that file after sync push — not a local store.
 
 Key resolution (copy):
-  1. decrypt secrets/providers.json.enc with MAGIC_PASSPHRASE
+  1. read secrets/providers.json (plaintext, no passphrase)
   2. look up key_env (fallback: provider name)
   3. if found → print (default redact middle; --reveal-key for full value)
   4. if missing → placeholder <KEY_ENV> plus a one-line note
@@ -36,8 +37,6 @@ Endpoint selection:
   default → first endpoints[] entry (or synthesized base_url+protocol)
   --endpoint <id> → select by endpoint id
   --protocol <name> → first endpoint matching protocol (aliases ok)
-
-If providers.json.enc exists but MAGIC_PASSPHRASE is unset, copy errors.
 
 Set keys with: magic secrets set <key_env> --value <secret>
 

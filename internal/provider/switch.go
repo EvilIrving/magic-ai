@@ -65,7 +65,7 @@ func init() {
 	Register(PiWriter{})
 	Register(OpenCodeWriter{})
 	Register(WorkBuddyWriter{})
-	// gemini/copilot/trae: Adapter capture/apply only (no stable third-party dialect yet).
+	// gemini/copilot/trae: Adapter apply only (no stable third-party dialect yet).
 	// mcpuser is MCP config, not a model provider.
 	for _, id := range []string{"gemini", "copilot", "trae"} {
 		Register(StubWriter{ID: id})

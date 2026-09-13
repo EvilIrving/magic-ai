@@ -40,11 +40,8 @@ func SecretPresent(secretsDir, keyEnv string) bool {
 	return strings.TrimSpace(v) != ""
 }
 
-// SetSecret wraps secrets.SetProviderSecret.
+// SetSecret wraps secrets.SetProviderSecret. The passphrase is required only
+// when the active store is encrypted; the plaintext local store needs none.
 func SetSecret(secretsDir, keyEnv, value string) error {
-	pass := os.Getenv("MAGIC_PASSPHRASE")
-	if pass == "" {
-		return fmt.Errorf("MAGIC_PASSPHRASE required to set provider secrets")
-	}
-	return secrets.SetProviderSecret(secretsDir, pass, keyEnv, value)
+	return secrets.SetProviderSecret(secretsDir, os.Getenv("MAGIC_PASSPHRASE"), keyEnv, value)
 }

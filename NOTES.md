@@ -1,5 +1,15 @@
 # Magic NOTES
 
+> 历史变更日志（**不是**需求真相源）。**2026-09-10 及更早的条目里，capture / 本地加密 secrets /
+> `$KEY_ENV` 占位已被推翻**。当前口径：本地 `secrets/providers.json` 明文；`.enc` **只是云端状态**；
+> Pi / WorkBuddy / OpenCode / Claude 投影写真值 key。见 `docs/decisions.md` D2/D3、`docs/secrets-and-sync.md`。
+> 下面旧条目里的 `providers.json.enc` / `MAGIC_PASSPHRASE` for copy 是当时实现，不是现行产品。
+
+## 口径统一 (2026-09-13)
+
+- D2：本地明文 `secrets/providers.json`；`.enc` 只表示云端对象（push 加密上传、pull 解密落回明文）。
+- D3：Pi / WorkBuddy / OpenCode / Claude 写真值 key。实现差距只列 `docs/open-questions.md` C 表。
+
 ## Review fixes (2026-09-10)
 
 - Redact: jsonc comments, `$KEY_ENV` skip, `key`/`access`/`refresh`/`*_token`; Pi deny `auth.json`; Claude partial redacts + reinjects.

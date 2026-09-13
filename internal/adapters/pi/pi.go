@@ -22,21 +22,6 @@ func (a *Adapter) Detect(home string) bool {
 	st, err := os.Stat(filepath.Join(home, ".pi", "agent"))
 	return err == nil && st.IsDir()
 }
-func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
-	return adapter.CapturePolicy{
-		Roots: []adapter.RootSpec{{ID: "main", RelHome: ".pi/agent"}},
-		Allow: []string{
-			"settings.json", "models.json", "keybindings.json", "trust.json",
-			"SYSTEM.md", "APPEND_SYSTEM.md", "AGENTS.md",
-			"extensions/**", "skills/**", "prompts/**", "themes/**", "agents/**",
-		},
-		Deny: []string{
-			"auth.json", // api_key / oauth tokens — not captured
-			"sessions/**", "bin/**", "npm/**", "git/**", "tmp/**",
-			"models-store.json", "pi-debug.log",
-		},
-	}
-}
 func (a *Adapter) SkillsDir(home string) string {
 	return filepath.Join(home, ".pi", "agent", "skills")
 }

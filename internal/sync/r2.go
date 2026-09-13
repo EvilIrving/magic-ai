@@ -126,6 +126,13 @@ func Status(ctx context.Context, cfg Config) (string, error) {
 	return fmt.Sprintf("bucket=%s prefix=vault/ objects≈%d", cfg.Bucket, len(keys)), nil
 }
 
+// isPlaintextProviderStore reports whether rel is the local provider key file
+// (secrets/providers.json). Product: local is always this plaintext file;
+// cloud state is secrets/providers.json.enc after encrypt-on-push.
+func isPlaintextProviderStore(rel string) bool {
+	return filepath.ToSlash(rel) == "secrets/providers.json"
+}
+
 // Push uploads magic home files under vault/ prefix.
 func Push(ctx context.Context, cfg Config, magicHome string) error {
 	c := client(cfg)
@@ -142,6 +149,9 @@ func Push(ctx context.Context, cfg Config, magicHome string) error {
 		rel, err := filepath.Rel(magicHome, path)
 		if err != nil {
 			return err
+		}
+		if isPlaintextProviderStore(rel) {
+			return nil
 		}
 		key := "vault/" + filepath.ToSlash(rel)
 		f, err := os.Open(path)

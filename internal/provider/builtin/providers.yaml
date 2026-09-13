@@ -1,0 +1,407 @@
+# Magic built-in provider template
+#
+# This file ships inside the Magic binary (go:embed) and is the product's
+# default catalog. It is NOT the live user config. At runtime Magic merges
+# this template under $MAGIC_HOME/providers.yaml with these rules:
+#
+#   - provider present only in template  -> offered as a default by
+#                                            `magic provider add <id>`
+#   - provider present in both           -> the user file wins, field by field;
+#                                            user `endpoints[]` replace template
+#                                            endpoints whole, user `pick` replaces
+#                                            template `pick` whole
+#   - nothing is ever written into providers.yaml without an explicit command
+#
+# Secrets are never stored here. `key_env` is a logical index into the secret
+# store ($MAGIC_HOME/secrets/), resolved at apply/copy time.
+#
+# Schema (mirrors internal/catalog):
+#   name      display name (shown by `magic providers`; not sent to harnesses)
+#   key_env   credential index; convention <VENDOR>_API_KEY
+#   pick      suggested default model ids (user config overrides)
+#   models    Claude Code role -> model id map (haiku/sonnet/opus/default/…)
+#   endpoints list of {id, base_url, protocol}; id is a stable selector used by
+#             `magic copy --endpoint <id>` and `magic provider use`
+#   note      human note; ignored by tooling
+#
+# Protocols Magic can project today (canonical values):
+#   openai-chat-completions | openai-responses | anthropic-messages
+# Providers whose only dialect is Google Generative AI / Mistral Conversations /
+# Bedrock are intentionally absent until Magic grows those dialects.
+#
+# Relays / gateways are user-defined and must not appear in this file.
+# Sources for official entries: vendor docs; cross-checked against Pi's shipped
+# provider catalog (@earendil-works/pi-ai dist/providers/*.js) and models.dev.
+#
+# version is informational; bump when the shape or the bulk of the data changes.
+
+version: 2
+
+providers:
+
+  # Relays / gateways are user-defined. Do not ship them here.
+  # Put custom endpoints in $MAGIC_HOME/providers.yaml.
+
+  # ---------------------------------------------------------------------------
+  # 国内官方
+  # ---------------------------------------------------------------------------
+
+  zai:
+    name: Z.AI (Coding Plan, global)
+    key_env: ZAI_API_KEY
+    note: Z.AI coding endpoint. Non-coding base is https://api.z.ai/api/paas/v4.
+    pick:
+      - glm-5.3
+      - glm-5.3-flash
+    models:
+      haiku: glm-5.3-flash
+      sonnet: glm-5.3
+      opus: glm-5.3
+      default: glm-5.3
+      subagent: glm-5.3-flash
+    endpoints:
+      - id: openai-chat
+        base_url: https://api.z.ai/api/coding/paas/v4
+        protocol: openai-chat-completions
+
+  zai-coding-cn:
+    name: Z.AI (Coding Plan, CN)
+    key_env: ZAI_CODING_CN_API_KEY
+    pick:
+      - glm-5.3
+      - glm-5.3-flash
+    models:
+      haiku: glm-5.3-flash
+      sonnet: glm-5.3
+      opus: glm-5.3
+      default: glm-5.3
+      subagent: glm-5.3-flash
+    endpoints:
+      - id: openai-chat
+        base_url: https://open.bigmodel.cn/api/coding/paas/v4
+        protocol: openai-chat-completions
+
+  deepseek:
+    name: DeepSeek
+    key_env: DEEPSEEK_API_KEY
+    note: "Official ids (2026-09): deepseek-flash = V4.1-Flash; deepseek-v4-pro = V4-Pro-0813. deepseek-chat / deepseek-reasoner retired."
+    pick:
+      - deepseek-flash
+      - deepseek-v4-pro
+    models:
+      haiku: deepseek-flash
+      sonnet: deepseek-v4-pro
+      opus: deepseek-v4-pro
+      default: deepseek-v4-pro
+      subagent: deepseek-flash
+    endpoints:
+      - id: anthropic
+        base_url: https://api.deepseek.com/anthropic
+        protocol: anthropic-messages
+      - id: openai-chat
+        base_url: https://api.deepseek.com/v1
+        protocol: openai-chat-completions
+      - id: openai-responses
+        base_url: https://api.deepseek.com/v1
+        protocol: openai-responses
+
+  kimi:
+    name: Kimi (Moonshot AI, global)
+    key_env: MOONSHOT_API_KEY
+    note: "kimi-k2.5 retired 2026-08-31. Current flagship kimi-k3; coding kimi-k2.7-code."
+    pick:
+      - kimi-k3
+      - kimi-k2.7-code
+    models:
+      haiku: kimi-k2.7-code
+      sonnet: kimi-k3
+      opus: kimi-k3
+      default: kimi-k3
+      reasoning: kimi-k3
+    endpoints:
+      - id: openai-chat
+        base_url: https://api.moonshot.ai/v1
+        protocol: openai-chat-completions
+      - id: anthropic
+        base_url: https://api.moonshot.ai/anthropic
+        protocol: anthropic-messages
+
+  kimi-cn:
+    name: Kimi (Moonshot AI, CN)
+    key_env: MOONSHOT_API_KEY
+    pick:
+      - kimi-k3
+      - kimi-k2.7-code
+    endpoints:
+      - id: openai-chat
+        base_url: https://api.moonshot.cn/v1
+        protocol: openai-chat-completions
+      - id: anthropic
+        base_url: https://api.moonshot.cn/anthropic
+        protocol: anthropic-messages
+
+  kimi-coding:
+    name: Kimi For Coding
+    key_env: KIMI_API_KEY
+    pick:
+      - kimi-k2.7-code
+      - kimi-k2.7-code-highspeed
+    models:
+      haiku: kimi-k2.7-code-highspeed
+      sonnet: kimi-k2.7-code
+      opus: kimi-k2.7-code
+      default: kimi-k2.7-code
+    endpoints:
+      - id: anthropic
+        base_url: https://api.kimi.com/coding
+        protocol: anthropic-messages
+
+  minimax:
+    name: MiniMax (global)
+    key_env: MINIMAX_API_KEY
+    pick:
+      - MiniMax-M3
+      - MiniMax-M2.7
+    models:
+      haiku: MiniMax-M2.7
+      sonnet: MiniMax-M3
+      opus: MiniMax-M3
+      default: MiniMax-M3
+    endpoints:
+      - id: anthropic
+        base_url: https://api.minimax.io/anthropic
+        protocol: anthropic-messages
+
+  minimax-cn:
+    name: MiniMax (CN)
+    key_env: MINIMAX_CN_API_KEY
+    pick:
+      - MiniMax-M3
+      - MiniMax-M2.7
+    endpoints:
+      - id: anthropic
+        base_url: https://api.minimaxi.com/anthropic
+        protocol: anthropic-messages
+
+  qwen-token-plan:
+    name: Qwen Token Plan (global)
+    key_env: QWEN_TOKEN_PLAN_API_KEY
+    pick:
+      - qwen3.8-max
+      - qwen3.8-flash
+    models:
+      haiku: qwen3.8-flash
+      sonnet: qwen3.8-max
+      opus: qwen3.8-max
+      default: qwen3.8-max
+    endpoints:
+      - id: openai-chat
+        base_url: https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+        protocol: openai-chat-completions
+
+  qwen-token-plan-cn:
+    name: Qwen Token Plan (CN)
+    key_env: QWEN_TOKEN_PLAN_CN_API_KEY
+    pick:
+      - qwen3.8-max
+      - qwen3.8-flash
+    endpoints:
+      - id: openai-chat
+        base_url: https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+        protocol: openai-chat-completions
+
+  xiaomi:
+    name: Xiaomi MiMo
+    key_env: XIAOMI_API_KEY
+    pick:
+      - mimo-v2.5-pro
+      - mimo-v2.5
+    models:
+      haiku: mimo-v2.5
+      sonnet: mimo-v2.5-pro
+      opus: mimo-v2.5-pro
+      default: mimo-v2.5-pro
+    endpoints:
+      - id: openai-chat
+        base_url: https://api.xiaomimimo.com/v1
+        protocol: openai-chat-completions
+
+  xiaomi-token-plan-cn:
+    name: Xiaomi MiMo Token Plan (CN)
+    key_env: XIAOMI_TOKEN_PLAN_CN_API_KEY
+    pick:
+      - mimo-v2.5-pro
+      - mimo-v2.5
+    endpoints:
+      - id: openai-chat
+        base_url: https://token-plan-cn.xiaomimimo.com/v1
+        protocol: openai-chat-completions
+
+  xiaomi-token-plan-ams:
+    name: Xiaomi MiMo Token Plan (Amsterdam)
+    key_env: XIAOMI_TOKEN_PLAN_AMS_API_KEY
+    pick:
+      - mimo-v2.5-pro
+      - mimo-v2.5
+    endpoints:
+      - id: openai-chat
+        base_url: https://token-plan-ams.xiaomimimo.com/v1
+        protocol: openai-chat-completions
+
+  xiaomi-token-plan-sgp:
+    name: Xiaomi MiMo Token Plan (Singapore)
+    key_env: XIAOMI_TOKEN_PLAN_SGP_API_KEY
+    pick:
+      - mimo-v2.5-pro
+      - mimo-v2.5
+    endpoints:
+      - id: openai-chat
+        base_url: https://token-plan-sgp.xiaomimimo.com/v1
+        protocol: openai-chat-completions
+
+  # ---------------------------------------------------------------------------
+  # 海外官方
+  # ---------------------------------------------------------------------------
+
+  anthropic:
+    name: Anthropic
+    key_env: ANTHROPIC_API_KEY
+    pick:
+      - claude-opus-4-6
+      - claude-sonnet-4-6
+      - claude-haiku-4-5
+    models:
+      haiku: claude-haiku-4-5
+      sonnet: claude-sonnet-4-6
+      opus: claude-opus-4-6
+      default: claude-sonnet-4-6
+    endpoints:
+      - id: anthropic
+        base_url: https://api.anthropic.com
+        protocol: anthropic-messages
+
+  openai:
+    name: OpenAI
+    key_env: OPENAI_API_KEY
+    pick:
+      - gpt-5.6-sol
+      - gpt-5.6-terra
+      - gpt-5.6-luna
+    models:
+      haiku: gpt-5.6-luna
+      sonnet: gpt-5.6-terra
+      opus: gpt-5.6-sol
+      default: gpt-5.6-sol
+    endpoints:
+      - id: openai-responses
+        base_url: https://api.openai.com/v1
+        protocol: openai-responses
+      - id: openai-chat
+        base_url: https://api.openai.com/v1
+        protocol: openai-chat-completions
+
+  xai:
+    name: xAI
+    key_env: XAI_API_KEY
+    pick:
+      - grok-4.6
+      - grok-4.5
+    models:
+      haiku: grok-4.5
+      sonnet: grok-4.6
+      opus: grok-4.6
+      default: grok-4.6
+    endpoints:
+      - id: openai-responses
+        base_url: https://api.x.ai/v1
+        protocol: openai-responses
+      - id: openai-chat
+        base_url: https://api.x.ai/v1
+        protocol: openai-chat-completions
+
+  cerebras:
+    name: Cerebras
+    key_env: CEREBRAS_API_KEY
+    endpoints:
+      - id: openai-chat
+        base_url: https://api.cerebras.ai/v1
+        protocol: openai-chat-completions
+
+  openrouter:
+    name: OpenRouter
+    key_env: OPENROUTER_API_KEY
+    note: Per-model dialect (anthropic/* routes to the Anthropic API).
+    endpoints:
+      - id: openai-chat
+        base_url: https://openrouter.ai/api/v1
+        protocol: openai-chat-completions
+      - id: anthropic
+        base_url: https://openrouter.ai/api/v1
+        protocol: anthropic-messages
+
+  fireworks:
+    name: Fireworks
+    key_env: FIREWORKS_API_KEY
+    endpoints:
+      - id: openai-chat
+        base_url: https://api.fireworks.ai/inference/v1
+        protocol: openai-chat-completions
+      - id: anthropic
+        base_url: https://api.fireworks.ai/inference
+        protocol: anthropic-messages
+
+  nvidia:
+    name: NVIDIA NIM
+    key_env: NVIDIA_API_KEY
+    endpoints:
+      - id: openai-chat
+        base_url: https://integrate.api.nvidia.com/v1
+        protocol: openai-chat-completions
+
+  huggingface:
+    name: Hugging Face
+    key_env: HF_TOKEN
+    endpoints:
+      - id: openai-chat
+        base_url: https://router.huggingface.co/v1
+        protocol: openai-chat-completions
+
+  baseten:
+    name: Baseten
+    key_env: BASETEN_API_KEY
+    endpoints:
+      - id: openai-chat
+        base_url: https://inference.baseten.co/v1
+        protocol: openai-chat-completions
+
+  ant-ling:
+    name: Ant Ling
+    key_env: ANT_LING_API_KEY
+    endpoints:
+      - id: openai-chat
+        base_url: https://api.ant-ling.com/v1
+        protocol: openai-chat-completions
+
+  vercel-ai-gateway:
+    name: Vercel AI Gateway
+    key_env: AI_GATEWAY_API_KEY
+    endpoints:
+      - id: anthropic
+        base_url: https://ai-gateway.vercel.sh
+        protocol: anthropic-messages
+      - id: openai-chat
+        base_url: https://ai-gateway.vercel.sh/v1
+        protocol: openai-chat-completions
+
+# -----------------------------------------------------------------------------
+# Not statically addressable (need per-account values) — deliberately omitted:
+#   github-copilot     base is per-plan (api.individual.githubcopilot.com) and
+#                      auth is an exchanged token, not the provider key
+#   cloudflare-ai-gateway  base is
+#                      https://gateway.ai.cloudflare.com/v1/<account>/<gateway>
+#   opencode (Zen)     base is chosen by the Zen router at request time
+#   google / google-vertex  Google Generative AI dialect — Magic has no
+#                      Gemini projector yet; add when the dialect lands
+#   mistral            Mistral Conversations dialect — same
+#   amazon-bedrock     Bedrock Converse dialect — same
+# -----------------------------------------------------------------------------

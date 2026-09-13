@@ -246,11 +246,11 @@ func TestSeedAndBackupLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Active != "shu" {
-		t.Fatalf("active=%s", f.Active)
+	if _, ok := f.Providers["deepseek"]; !ok {
+		t.Fatal("deepseek missing")
 	}
-	if _, ok := f.Providers["shu"]; !ok {
-		t.Fatal("shu missing")
+	if _, ok := f.Providers["shu"]; ok {
+		t.Fatal("relays must not be seeded")
 	}
 	// backup trim
 	src := filepath.Join(t.TempDir(), "settings.json")

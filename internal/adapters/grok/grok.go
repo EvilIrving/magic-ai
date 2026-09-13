@@ -22,16 +22,6 @@ func (a *Adapter) Detect(home string) bool {
 	st, err := os.Stat(filepath.Join(home, ".grok"))
 	return err == nil && st.IsDir()
 }
-func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
-	return adapter.CapturePolicy{
-		Roots: []adapter.RootSpec{{ID: "main", RelHome: ".grok"}},
-		Allow: []string{
-			"config.toml", "AGENTS.md", "skills/**", "agents/**",
-			"hooks/**", "commands/**", "disabled-hooks",
-		},
-		Deny: []string{"sessions/**", "bin/**", "logs/**", "cache/**"},
-	}
-}
 func (a *Adapter) SkillsDir(home string) string {
 	return filepath.Join(home, ".grok", "skills")
 }

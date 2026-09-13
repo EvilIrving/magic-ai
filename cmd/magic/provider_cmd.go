@@ -21,7 +21,7 @@ func cmdProvider() *cobra.Command {
 
 Library (source of truth):
   providers.yaml (providers + endpoints + pick + active)
-  secrets/providers.json.enc (MAGIC_PASSPHRASE)
+  secrets/providers.json (local plaintext; .enc is cloud-only)
   magic.yaml adapter enablement
 
 Semantics:
@@ -29,7 +29,7 @@ Semantics:
   magic provider use <providerName>   # from providers.yaml
   magic provider use company          # alias for providers.active / MAGIC_ACTIVE_PROVIDER
 
-Dialect writers (SwitchWriter): Claude, Codex, Grok, Pi, OpenCode, WorkBuddy implemented; gemini/copilot/trae capture-only.
+Dialect writers (SwitchWriter): Claude, Codex, Grok, Pi, OpenCode, WorkBuddy implemented; gemini/copilot/trae apply-only.
 
 prompts-can claudes/gpts/groks/pi scripts are retired as daily entrypoints
 (reference goldens under third_party/prompts-can-providers/).`,
@@ -199,7 +199,7 @@ func cmdProviderEnv() *cobra.Command {
 	var valueFlag string
 	set := &cobra.Command{
 		Use:   "set <key_env>",
-		Short: "Set key in secrets/providers.json.enc (requires MAGIC_PASSPHRASE)",
+		Short: "Set key in local plaintext secrets/providers.json",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mh, err := resolveMagicHome()
@@ -237,21 +237,10 @@ func cmdProviderTest() *cobra.Command {
 			if len(args) > 0 {
 				target = args[0]
 			}
-			// Soft aliases: openai/grok without a library name → company (active), not a hard-coded vendor.
+			// Soft aliases: openai/grok without a library name → company (active).
 			switch strings.ToLower(target) {
-			case "openai":
+			case "openai", "grok":
 				target = "company"
-			case "grok":
-				f, _ := ctx.File()
-				if f != nil {
-					if _, ok := f.Providers["shu-grok"]; ok {
-						target = "shu-grok"
-					} else {
-						target = "company"
-					}
-				} else {
-					target = "company"
-				}
 			}
 			h := harnessFlag(cmd)
 			msg, err := provider.TestProvider(ctx, target)

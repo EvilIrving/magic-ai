@@ -9,7 +9,7 @@ import (
 
 // Adapter mirrors ~/.config/opencode (global OpenCode config + packs).
 // Credentials live in ~/.local/share/opencode/auth.json and are intentionally
-// outside this root (not captured by default).
+// outside this root (not managed by default).
 type Adapter struct{}
 
 func New() *Adapter { return &Adapter{} }
@@ -32,20 +32,6 @@ func (a *Adapter) Detect(home string) bool {
 		}
 	}
 	return false
-}
-func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
-	return adapter.CapturePolicy{
-		Roots: []adapter.RootSpec{{ID: "main", RelHome: ".config/opencode"}},
-		Allow: []string{
-			"opencode.json", "opencode.jsonc", "tui.json",
-			"agents/**", "commands/**", "skills/**", "themes/**",
-			"plugins/**", "modes/**", "tools/**",
-		},
-		Deny: []string{
-			// keep deny explicit for accidental overlay extras
-			"*.log",
-		},
-	}
 }
 func (a *Adapter) SkillsDir(home string) string {
 	return filepath.Join(home, ".config", "opencode", "skills")

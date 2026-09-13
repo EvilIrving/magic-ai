@@ -18,7 +18,7 @@ Pi’s `@earendil-works/pi-ai` package builds a rich model catalog with the fiel
 | `contextWindow` / `maxTokens` | Context and max output |
 | `thinkingLevelMap` | Maps Magic/Pi levels (`off|minimal|low|medium|high|xhigh|max`) → provider effort string, or `null` = unsupported |
 
-Magic today only caches a slim OpenRouter list (`internal/openrouter`). That is useful for search/pick, but too thin for thinking maps, stable costs, or multi-provider identity. Pi shows how to treat **models.dev as the primary metadata source** and OpenRouter as a **supplement / live overlay**.
+Magic 现在：`internal/modelsdev` 拉 models.dev → `internal/modelfile` 规范化写 `$MAGIC_HOME/registry/models.json`；`internal/openrouter` 是 slim 补充（`--source all`）。models.dev 为**主元数据源**，OpenRouter 为补充。
 
 ## How Pi generates the catalog (study summary)
 
@@ -252,7 +252,7 @@ Out of scope for the next pass: Pi compat metadata, auto background refresh, shi
 - `registry search|show` and `catalog pick` prefer `models.json`, fall back to OpenRouter cache.
 - Include-all models (unlike Pi’s tool_call filter); `toolCall` field recorded when present.
 - **Apply / provider-use enrichment** (same pass): each pick → `modelfile.ResolvePickMeta` / `FindFuzzy` on `models.json`:
-  - **Pi**: full model row fields (`contextWindow` / `maxTokens` / `thinkingLevelMap` / `cost` / `reasoning` / `input`); `apiKey` stays `$KEY_ENV`.
+  - **Pi**: full model row fields (`contextWindow` / `maxTokens` / `thinkingLevelMap` / `cost` / `reasoning` / `input`); `apiKey` is written as the **resolved value** (product decision: work out of the box, no `$KEY_ENV` indirection).
   - **Grok**: `context_window` / `max_completion_tokens` / `name` / `reasoning_efforts` from meta.
   - **Claude**: role envs + `CLAUDE_CODE_EFFORT_LEVEL` / `CLAUDE_CODE_AUTO_COMPACT_WINDOW` from meta.
   - **Codex**: native `models.json` fields + reasoning effort; third-party only sets `model_catalog_json`.

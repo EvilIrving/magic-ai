@@ -16,15 +16,12 @@ func New(id, name string) *Adapter {
 	return &Adapter{id: adapter.ID(id), name: name}
 }
 
-func (a *Adapter) ID() adapter.ID          { return a.id }
-func (a *Adapter) Name() string            { return a.name }
-func (a *Adapter) Platforms() []string     { return []string{"any"} }
-func (a *Adapter) Implemented() bool       { return false }
-func (a *Adapter) Caps() adapter.Caps      { return adapter.Caps{} }
-func (a *Adapter) Detect(home string) bool { return false }
-func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
-	return adapter.CapturePolicy{}
-}
+func (a *Adapter) ID() adapter.ID                { return a.id }
+func (a *Adapter) Name() string                  { return a.name }
+func (a *Adapter) Platforms() []string           { return []string{"any"} }
+func (a *Adapter) Implemented() bool             { return false }
+func (a *Adapter) Caps() adapter.Caps            { return adapter.Caps{} }
+func (a *Adapter) Detect(home string) bool       { return false }
 func (a *Adapter) SkillsDir(home string) string  { return "" }
 func (a *Adapter) AgentsDir(home string) string  { return "" }
 func (a *Adapter) MirrorRoot(home string) string { return "" }

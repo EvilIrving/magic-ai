@@ -22,3 +22,17 @@ func TestVaultDestRejectsEscape(t *testing.T) {
 		t.Fatalf("dst=%s want=%s", dst, want)
 	}
 }
+
+func TestPlaintextProviderStoreExcluded(t *testing.T) {
+	cases := map[string]bool{
+		filepath.Join("secrets", "providers.json"):     true,
+		filepath.Join("secrets", "providers.json.enc"): false,
+		filepath.Join("secrets", "pi.json.enc"):        false,
+		filepath.Join("providers.yaml"):                false,
+	}
+	for rel, want := range cases {
+		if got := isPlaintextProviderStore(rel); got != want {
+			t.Errorf("isPlaintextProviderStore(%q)=%v want %v", rel, got, want)
+		}
+	}
+}

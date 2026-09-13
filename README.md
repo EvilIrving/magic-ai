@@ -1,15 +1,16 @@
 # Magic
 
-**1.0.0** — AI harness 配置管理器（CLI 引擎）。
+**1.0.0** — 一份配置，投到多个 AI coding harness。
 
 - **文档目录：** [docs/README.md](./docs/README.md)
+- **产品使用定义（先读这个）：** [docs/usage.md](./docs/usage.md) —— 每条命令做什么、吐什么、生成的文件长什么样
 - **对外入门：** [docs/getting-started.md](./docs/getting-started.md)
 - **对内约定：** [AGENTS.md](./AGENTS.md)
 - **Harness 矩阵：** [docs/harness-matrix.md](./docs/harness-matrix.md)
 
-`magic` 管理 AI coding harness（Pi / Grok / Claude / Codex / OpenCode / Gemini / Copilot / WorkBuddy / Trae / MCP user）的**用户级配置**。  
-真相源与工作目录是本地 **配置库 `~/.magic-ai`**（`MAGIC_HOME` 覆盖；别名 `MAGIC_VAULT`）。  
-不做整机备份，不安装软件。
+真相源是 **`~/.magic-ai`**（`MAGIC_HOME`；别名 `MAGIC_VAULT`）。产品概念简单：只维护这一份 skill / MCP / 中转 API，`apply` 按各 harness **自己的格式**写进已经在用的文件。新开 OpenCode / Grok 不必复制粘贴。Pi 的 theme、`AGENTS.md` 这类自定义随库跨机，只还回同一个工具。
+
+手改配置库 / `skills` / `catalog` / `secrets` 是进库的**手段**，不是产品本身。官方登录 / access token / OAuth **不进库**。多机备份的是这份配置库（R2 / git），不是 `~/.pi` 家目录。不做整机备份，不安装软件。布局见 [docs/library-layout.md](./docs/library-layout.md)。
 
 ## 用法优先（Skills）
 
@@ -42,9 +43,12 @@ magic skills sync --scope project --include-global
 
 | 概念 | 含义 |
 |------|------|
-| **配置库** | `~/.magic-ai`：Skill、sub-agent、镜像配置、providers、secrets 的唯一真相源 |
+| **配置库** | `~/.magic-ai`：唯一要维护的目录。跨工具的 skill / MCP / API 一份；各工具自己的 theme、`AGENTS.md` 另放 `packs/harness/<id>/` |
+| **Harness** | 消费这些配置的 AI coding 工具（Pi / Grok / Claude / Codex / OpenCode…）。Magic 不装它们，只按对方格式往配置里写 |
 | **Skill（全局）** | `$MAGIC_HOME/packs/skills/<name>/`；用 `magic skills sync` 或 `magic apply` 投影 |
 | **Skill（项目）** | `<project>/.agents/skills/`；仅 `magic skills … --scope project` |
+| **MCP** | `$MAGIC_HOME/packs/mcp/mcp.yaml`；apply 按各工具 mcp 字段写入 |
+| **中转 API** | `providers.yaml`（无密钥）+ `secrets/providers.json`（本地明文 0600；`.enc` 只是云端状态） |
 | **sub-agent** | `packs/agents/<name>.md`；apply 写入各工具 `…/agents/`。产品里说的 **agents = sub-agent** |
 | **Harness 适配器** | pi / grok / claude / codex / mcpuser / opencode / gemini / copilot / workbuddy / trae。Skills 目标另含 cursor。**不做 windsurf**。矩阵见 [docs/harness-matrix.md](./docs/harness-matrix.md) |
 
@@ -65,16 +69,14 @@ export MAGIC_HOME=~/.magic-ai   # 未设置时默认即此
 ./magic skills init             # 确保 packs/skills + 各 agent skills 目录
 ```
 
-创建：`magic.yaml`、`providers.yaml`（示例）、`packs/skills`、`packs/agents`、`packs/harness`、`secrets/`、`capture.overlay.yaml`、`README.md`。
+创建：`magic.yaml`、`providers.yaml`、`packs/skills`、`packs/mcp`、`packs/agents`、`packs/harness`、`secrets/`、`README.md`。
 
 ## 常用命令
 
 ```bash
 magic status
 magic adapters
-magic capture [--dry-run] [--only pi] [--home /path/fixture]
-magic capture approve pi my-extra.toml
-magic apply [--dry-run] [--home "$HOME"]   # 镜像恢复 + 全局 packs/skills + sub-agents
+magic apply [--dry-run] [--home "$HOME"]   # 配置库 → 各 harness 原生文件（skill / MCP / API）
 
 magic skills sync [skill...] [--scope global|project|all] [--target claude,pi] [--dry-run]
 magic skills status [skill...]
@@ -89,11 +91,11 @@ magic skills enable|disable SKILL...
 magic agents          # 列 packs/agents 与 Caps.Agents 适配器
 magic catalog         # 列 providers.yaml
 magic catalog pick <provider> <model-id>   # 追加 pick（可选 models_meta）
-magic copy deepseek              # providers.yaml → stdout (key from secrets/providers.json.enc)
+magic copy deepseek              # providers.yaml → stdout (key from local secrets/providers.json)
 magic copy deepseek --reveal-key # full api key (default redacts middle)
 magic copy shu --protocol anthropic-messages   # pick endpoint by protocol
 magic copy shu --endpoint openai-responses     # pick endpoint by id
-magic secrets set DEEPSEEK_API_KEY --value 'sk-…'   # store key (needs MAGIC_PASSPHRASE)
+magic secrets set DEEPSEEK_API_KEY --value 'sk-…'   # store key (local plaintext, no passphrase)
 magic provider use official|company|<name> [--harness claude|codex|grok|pi|opencode|workbuddy]
 magic provider test company
 magic secrets list               # key names only
@@ -125,24 +127,24 @@ $MAGIC_HOME/registry/
 
 ### providers.yaml（endpoints + active）
 
-多协议 relay（同一 `key_env` + `pick`，多条 `endpoints[]`）：
+官方或多协议自定义（同一 `key_env` + `pick`，多条 `endpoints[]`）。中转站写在用户文件里，不进内置模板。
 
 ```yaml
-active: shu   # optional; override with MAGIC_ACTIVE_PROVIDER
+active: deepseek   # optional; override with MAGIC_ACTIVE_PROVIDER
 providers:
-  shu:
-    key_env: SHU_API_KEY
-    pick: [gpt-5.6-sol]
+  deepseek:
+    key_env: DEEPSEEK_API_KEY
+    pick: [deepseek-flash, deepseek-v4-pro]
     endpoints:
-      - id: openai-responses
-        base_url: https://api.shu.cool/v1
-        protocol: openai-responses
-      - id: openai-chat
-        base_url: https://api.shu.cool/v1
-        protocol: openai-chat-completions
       - id: anthropic
-        base_url: https://api.shu.cool
+        base_url: https://api.deepseek.com/anthropic
         protocol: anthropic-messages
+      - id: openai-chat
+        base_url: https://api.deepseek.com/v1
+        protocol: openai-chat-completions
+      - id: openai-responses
+        base_url: https://api.deepseek.com/v1
+        protocol: openai-responses
 ```
 
 - 协议常量：`openai-chat-completions`、`openai-responses`、`anthropic-messages`（别名如 `openai` / `anthropic` 可接受）。
@@ -153,12 +155,13 @@ providers:
 
 `magic copy <provider>` 从 `$MAGIC_HOME/providers.yaml` 抽出该 provider 的非密钥字段到 stdout（clipboard-friendly）。
 
-- `key_env` 是逻辑索引名（如 `DEEPSEEK_API_KEY`），**不是** process env 变量名；真值存在加密的 `$MAGIC_HOME/secrets/providers.json.enc`。
-- 密钥解析（copy）：用 `MAGIC_PASSPHRASE` 解密 `secrets/providers.json.enc` → 按 `key_env` 查找（fallback：provider 名）→ 有则打印（默认 redact 中间：首 4…末 4；`--reveal-key` 全文）→ 无则占位符 `<DEEPSEEK_API_KEY>` + 一行缺失提示。
+- `key_env` 是逻辑索引名（如 `DEEPSEEK_API_KEY`），**不是** process env 变量名；真值存在本地密钥文件。
+- **本地明文**：`$MAGIC_HOME/secrets/providers.json`（0600）。本地无 `.enc`，无需口令。
+- **`.enc` 是云端状态**：`sync push` 把含密钥的文件加密后上传为 `<rel>.enc`，其余明文；`sync pull` 解密后落回本地明文。口令仅 push/pull 需要。
+- 密钥解析（copy）：按 key_env 在本地明文库里查找（fallback：provider 名）→ 有则打印（默认 redact 中间：首 4…末 4；`--reveal-key` 全文）→ 无则占位符 `<DEEPSEEK_API_KEY>` + 一行缺失提示。
 - **不**读 OS / process env 取 copy key（无 env override）。
 - Endpoint 选择：默认第一条；`--protocol <name>` 或 `--endpoint <id>` 指定。
-- Adapter reinject 仍用 `secrets/<adapterID>.json.enc`（capture/apply）；与 provider map 并存。
-- 写入：`magic secrets set <key_env> --value …`（或 stdin）；`magic secrets list` 只列名。
+- 写入：`magic secrets set <key_env> --value …`（或 stdin）；`magic secrets list` 只列名。皆不需口令。
 - 不再支持 `magic copy pi/...` / `grok/...` / `--harness`。
 
 
@@ -189,42 +192,25 @@ magic provider backup list|restore|clear --harness claude
 
 必填：`MAGIC_R2_BUCKET`、`MAGIC_R2_ACCESS_KEY_ID`（或 `AWS_ACCESS_KEY_ID`）、`MAGIC_R2_SECRET_ACCESS_KEY`（或 `AWS_SECRET_ACCESS_KEY`）。建议：`MAGIC_R2_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com`。可选：`MAGIC_R2_REGION`（默认 `auto`）。这是 R2 **S3 API** 凭证，不是随便一个 Cloudflare API Token。本机值放 local-environment skill，**不要**写进本仓库。
 
-- 上传对象：整个 `$MAGIC_HOME`（前缀 `vault/`），**含**加密的 `secrets/*.enc`（adapter reinject + `providers.json.enc`）。
+- 上传对象：整个 `$MAGIC_HOME`（前缀 `vault/`）。**只把含密钥的文件加密成 `.enc`**，其余明文。
 - **不**上传：`backups/`。
-- **`MAGIC_PASSPHRASE` 只留本机**（环境变量 / 本地约定），**不**进 R2、不进配置库明文。对端 pull 后用同一口令解密。
-- 自动 push 约定：**库变更后**（如 `capture` 成功）可挂自动 push；**禁止**在 `apply` 后自动 push。当前 CLI 以手动 `magic sync push|pull` 为主（自动挂接未接上时勿假装已有）。R2 冲突 UI 未做。
-
-## Capture
-
-按适配器 builtin allow/deny + `capture.overlay.yaml` 分类，allow 写入 `packs/harness/<id>/`。  
-密钥字段红acted 为 `${MAGIC_SECRET:…}`，有 `MAGIC_PASSPHRASE` 时密文进 `secrets/<id>.json.enc`。
-
-Claude：`~/.claude.json` **字段级抽取**（至少 `mcpServers` 等配置键）→  
-`packs/harness/claude/claude.json.partial.json`，不整文件镜像庞大 runtime/project 状态。  
-
-**Local config refs（通用）：** allow 的 `settings.json` / `settings.local.json` 会解析本地路径引用并 force-allow 存在的文件（`settings.ref`）；Codex 的 `config.toml` 保守抽取 harness 根下路径（`config.ref`，忽略 URL / 裸二进制）。库内 settings 会把 `$HOME/<adapter RelHome>` 折成 `~/…` 以便跨机。  
-
-**Allow 扩展：** Codex 另收 `hooks.json`、`themes/**`；Grok 另收 `hooks/**`、`commands/**`、`disabled-hooks`。
-
-**Pi：** `themes/**` 在 allow；`models-store.json` 在 deny；`memory` 等未列项按 unknown **默认不收**（可用 `capture.overlay.yaml` / `magic capture approve` 显式纳入）。
-
-**OpenCode：** `~/.config/opencode`（json/jsonc、skills/agents/themes…）；**不**收 `~/.local/share/opencode/auth.json`。  
-**Gemini：** `~/.gemini` 的 `settings.json` / `GEMINI.md` / `commands/**`；deny `.env` 与 history。  
-**Copilot：** `~/.copilot` 用户可编辑项；**deny** `config.json`（含登录态）。  
-**WorkBuddy：** `~/.codebuddy/models.json`（Detect 亦认 `~/.workbuddy`）。  
-**Trae：** 只收 `~/.trae`（skills/mcp/sandbox 等），不镜像 Application Support。  
-**mcpuser：** `~/.config/mcp/mcp.json`。
+- **口令只在 push/pull 需要**（环境变量 / 本地约定），**不**进 R2、不进配置库。对端 pull 解密 `.enc`，落盘为本地明文（无 `.enc`）。
+- 自动 push 约定：**库变更后**可挂自动 push；**禁止**在 `apply` 后自动 push。当前 CLI 以手动 `magic sync push|pull` 为主（自动挂接未接上时勿假装已有）。R2 冲突 UI 未做。
 
 ## Apply（配置库投影）
 
-1. 恢复镜像树，并按 secrets **reinject** 占位符  
+产品出口：把库里的一份 skill / MCP / API **按对方格式写进**各 harness 已有文件。写回一律**字段级合并**（结构化文件按键、一文件一项按项），不整文件覆盖；冲突要比记录（A 机 5 个模型 vs B 机 3 个），不是整份 json 当黑盒。
+
+1. 把配置库内容按各 harness 格式写入目标文件（本地密钥明文，无 reinject）  
 2. **Skills（仅全局）**：`$MAGIC_HOME/packs/skills` → 各 Caps.Skills harness 目录（symlink → junction → copy）。**永不删除真实目录**  
-3. **Sub-agents**：`packs/agents/*.md` → 各 Caps.Agents 目录（claude / codex / grok / pi / opencode / copilot / trae）
-4. **Providers**（`magic apply` 末尾；`providers.yaml` 存在且适配器 Detect 通过时）。**Claude / Pi / OpenCode / WorkBuddy** 会投影 active provider。Grok / Codex 走 `magic provider use`：
+3. **MCP**：`packs/mcp/mcp.yaml` → 各工具 mcp 字段  
+4. **Sub-agents**：`packs/agents/*.md` → 各 Caps.Agents 目录（claude / codex / grok / pi / opencode / copilot / trae）
+5. **per-harness 自定义**：`packs/harness/<id>/` 只还回该工具  
+6. **Providers**（`magic apply` 末尾；`providers.yaml` 存在且适配器 Detect 通过时）。**Claude / Pi / OpenCode / WorkBuddy** 会投影 active provider。Grok / Codex 走 `magic provider use`：
    - **Claude Code**：非破坏性 upsert `~/.claude/settings.json` 的 `env`：`ANTHROPIC_BASE_URL` + **`ANTHROPIC_AUTH_TOKEN`（主）** + `ANTHROPIC_API_KEY`（同值兼容）；角色 env（`ANTHROPIC_MODEL` / `ANTHROPIC_DEFAULT_*` / `CLAUDE_CODE_SUBAGENT_MODEL`）；可选 `CLAUDE_CODE_EFFORT_LEVEL` / `CLAUDE_CODE_AUTO_COMPACT_WINDOW`（来自 registry meta）。选 `anthropic-messages` endpoint。官方清除全部 Magic 托管 `ANTHROPIC_*` / `CLAUDE_CODE_*`。
-   - **Pi**：merge `~/.pi/agent/models.json` 中 `providers.magic-<name>`（`baseUrl` / `api` / `models` from pick；`apiKey` 写成 `$KEY_ENV`，**不**写真值）；协议优先 `openai-responses` → `openai-chat-completions`。另写 sidecar `models.magic.json`。每个 pick 会从 `$MAGIC_HOME/registry/models.json` fuzzy 查找并投影 `contextWindow` / `maxTokens` / `thinkingLevelMap` / `cost` / `reasoning` / `input`（缺 meta 时仅写 id+name，不失败）。
-   - **OpenCode**：upsert `~/.config/opencode/opencode.json` 的 `provider.magic-<name>`（`options.baseURL` + `apiKey` 明文）与 `model`。官方清除 `magic-*`。
-   - **WorkBuddy**：merge `~/.codebuddy/models.json`（`apiKey: ${KEY_ENV}`，id 前缀 `magic-`）。官方去掉 Magic 模型行。
+   - **Pi**：merge `~/.pi/agent/models.json` 中 `providers.magic-<name>`（`baseUrl` / `api` / `models` from pick；`apiKey` 写**真值**，开箱即用，不走 `$KEY_ENV`）。协议优先 `openai-responses` → `openai-chat-completions`。另写 sidecar `models.magic.json`。每个 pick 会从 `$MAGIC_HOME/registry/models.json` fuzzy 查找并投影 `contextWindow` / `maxTokens` / `thinkingLevelMap` / `cost` / `reasoning` / `input`（缺 meta 时仅写 id+name，不失败）。
+   - **OpenCode**：upsert `~/.config/opencode/opencode.json` 的 `provider.magic-<name>`（`options.baseURL` + `apiKey` 真值）与 `model`。官方清除 `magic-*`。
+   - **WorkBuddy**：merge `~/.codebuddy/models.json`（`apiKey` 写**真值**，与 Pi 同规则；id 前缀 `magic-`）。官方去掉 Magic 模型行。
    - Active provider：`MAGIC_ACTIVE_PROVIDER` → `providers.active` → 唯一匹配者；多匹配则跳过并提示。
 
 **Apply / `provider use` 元数据：** Pi / Grok / Claude / Codex / WorkBuddy 投影 pick 时读取 `registry/models.json`。最佳效果请先：
@@ -255,12 +241,14 @@ packs/agents/<name>/AGENT.md    # 或目录整树
 # 或：
 export MAGIC_HOME=/tmp/magic-lib
 ./magic init
-./magic capture --dry-run --home testdata/demo-home --only pi
 ```
 
 ## 版本
 
-`VERSION` / `magic version` = **1.0.0**（formal）。
+`VERSION` / `magic version` = **1.0.0**。
+
+含义：**CLI 引擎与配置库 + apply 投影**（skill / MCP / API → 各 harness）。
+文档中标「规划中」的（`magic login`、`magic guide`、桌面端、签名发行）**不属于 1.0.0**。
 
 ## 非目标 / 不做
 
@@ -273,4 +261,4 @@ export MAGIC_HOME=/tmp/magic-lib
 - TUI、完整 R2 冲突 UI、enterprise denylist UI、Origin push（延期）
 - Windsurf 适配器（产品跳过）
 
-**后续产品 UX（不在 1.0.0 formal CLI 范围）**：Magic **自有** menubar/tray + 全局热键命令面板。本版只交付 CLI/引擎。
+**后续产品 UX（不在 1.0.0 CLI 范围）**：Magic **自有** menubar/tray + 全局热键命令面板。本版只交付 CLI/引擎。

@@ -28,35 +28,6 @@ func (a *Adapter) Detect(home string) bool {
 	_, err := os.Stat(filepath.Join(root, "settings.json"))
 	return err == nil
 }
-func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
-	return adapter.CapturePolicy{
-		Roots: []adapter.RootSpec{{ID: "main", RelHome: ".copilot"}},
-		Allow: []string{
-			"settings.json",
-			"copilot-instructions.md",
-			"instructions/**",
-			"skills/**",
-			"agents/**",
-			"hooks/**",
-			"extensions/**",
-			"mcp-config.json",
-			"lsp-config.json",
-		},
-		Deny: []string{
-			"config.json", // auth + managed state
-			"logs/**",
-			"session-state/**",
-			"command-history-state/**",
-			"session-store.db",
-			"session-store.db-*",
-			"mcp-oauth-config/**",
-			"mcp-secrets/**",
-			"ide/**",
-			"installed-plugins/**",
-			"plugin-data/**",
-		},
-	}
-}
 func (a *Adapter) SkillsDir(home string) string {
 	return filepath.Join(home, ".copilot", "skills")
 }

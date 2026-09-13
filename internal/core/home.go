@@ -32,10 +32,11 @@ type Paths struct {
 	Root          string
 	MagicYAML     string
 	ProvidersYAML string
-	Overlay       string
 	PacksSkills   string
+	PacksMCP      string
 	PacksAgents   string
 	PacksHarness  string
+	Registry      string
 	Secrets       string
 	Backups       string
 	README        string
@@ -46,10 +47,11 @@ func NewPaths(root string) Paths {
 		Root:          root,
 		MagicYAML:     filepath.Join(root, "magic.yaml"),
 		ProvidersYAML: filepath.Join(root, "providers.yaml"),
-		Overlay:       filepath.Join(root, "capture.overlay.yaml"),
 		PacksSkills:   filepath.Join(root, "packs", "skills"),
+		PacksMCP:      filepath.Join(root, "packs", "mcp"),
 		PacksAgents:   filepath.Join(root, "packs", "agents"),
 		PacksHarness:  filepath.Join(root, "packs", "harness"),
+		Registry:      filepath.Join(root, "registry"),
 		Secrets:       filepath.Join(root, "secrets"),
 		Backups:       filepath.Join(root, "backups"),
 		README:        filepath.Join(root, "README.md"),
@@ -60,7 +62,7 @@ func NewPaths(root string) Paths {
 func InitSkeleton(root string) error {
 	p := NewPaths(root)
 	dirs := []string{
-		p.Root, p.PacksSkills, p.PacksAgents, p.PacksHarness, p.Secrets, p.Backups,
+		p.Root, p.PacksSkills, p.PacksMCP, p.PacksAgents, p.PacksHarness, p.Registry, p.Secrets, p.Backups,
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0o755); err != nil {
@@ -87,15 +89,6 @@ adapters:
 # Windsurf is not supported (dropped).
 `
 		if err := AtomicWriteFile(p.MagicYAML, []byte(content), 0o644); err != nil {
-			return err
-		}
-	}
-	if _, err := os.Stat(p.Overlay); os.IsNotExist(err) {
-		content := `# capture.overlay.yaml — user capture rules (synced with 配置库)
-# Precedence: user.exclude > user.include > builtin.deny > builtin.allow > unknown DENY
-harnesses: {}
-`
-		if err := AtomicWriteFile(p.Overlay, []byte(content), 0o644); err != nil {
 			return err
 		}
 	}
@@ -132,10 +125,9 @@ On ` + "`magic apply`" + `, files are copied into each Caps.Agents harness path:
 
 - packs/skills — 全局 Skill 真相源；magic skills sync / magic apply 投影到各 harness
 - packs/agents — sub-agent 定义（*.md）
-- packs/harness/<id> — 各 harness 镜像树
-- providers.yaml — provider / pick（无密钥明文）
-- secrets/ — 捕获 reinject（<adapter>.json.enc）+ provider keys（providers.json.enc；口令加密）
-- capture.overlay.yaml — capture 用户 include/exclude
+- packs/harness/<id> — 各 harness 自定义文件（apply 写回该 harness）
+- providers.yaml — provider / pick（无密钥）
+- secrets/providers.json — 密钥明文（0600）。本地无 .enc；.enc 只是云端状态
 - backups/ — apply 备份
 
 覆盖路径：MAGIC_HOME（别名 MAGIC_VAULT）。

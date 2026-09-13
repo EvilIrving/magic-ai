@@ -8,7 +8,7 @@ import (
 )
 
 // Adapter mirrors ~/.gemini user settings (Gemini CLI).
-// Auth often lives in .env / OAuth — .env is denied by default (overlay to approve).
+// Auth often lives in .env / OAuth — Magic does not manage .env.
 type Adapter struct{}
 
 func New() *Adapter { return &Adapter{} }
@@ -28,21 +28,8 @@ func (a *Adapter) Detect(home string) bool {
 	_, err := os.Stat(filepath.Join(root, "settings.json"))
 	return err == nil
 }
-func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
-	return adapter.CapturePolicy{
-		Roots: []adapter.RootSpec{{ID: "main", RelHome: ".gemini"}},
-		Allow: []string{
-			"settings.json", "GEMINI.md", "commands/**",
-		},
-		Deny: []string{
-			"history/**", "tmp/**", "tmp", "*.log",
-			"installation_id", "projects.json",
-			".env", // secrets — approve via overlay if desired
-		},
-	}
-}
-func (a *Adapter) SkillsDir(home string) string  { return "" }
-func (a *Adapter) AgentsDir(home string) string  { return "" }
+func (a *Adapter) SkillsDir(home string) string { return "" }
+func (a *Adapter) AgentsDir(home string) string { return "" }
 func (a *Adapter) MirrorRoot(home string) string {
 	return filepath.Join(home, ".gemini")
 }

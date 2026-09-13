@@ -15,12 +15,14 @@ import (
 func cmdSecrets() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "secrets",
-		Short: "Manage encrypted provider API keys (secrets/providers.json.enc)",
-		Long: `Provider API keys for magic copy live in encrypted
-$MAGIC_HOME/secrets/providers.json.enc, indexed by key_env from providers.yaml.
+		Short: "Manage provider API keys (local plaintext store)",
+		Long: `Provider API keys live in local plaintext
+$MAGIC_HOME/secrets/providers.json (0600), indexed by key_env from
+providers.yaml. No passphrase. Local is never encrypted.
 
-Requires MAGIC_PASSPHRASE for set/list (decrypt/encrypt). Adapter reinject
-files (secrets/<adapterID>.json.enc) are separate and unchanged.`,
+.enc is the cloud state of secret-bearing files after magic sync push.
+Daily commands (apply / copy / secrets / provider) only read the
+plaintext file.`,
 	}
 	c.AddCommand(cmdSecretsSet())
 	c.AddCommand(cmdSecretsList())
@@ -31,25 +33,20 @@ func cmdSecretsSet() *cobra.Command {
 	var valueFlag string
 	c := &cobra.Command{
 		Use:   "set <key_env>",
-		Short: "Set a provider API key in secrets/providers.json.enc",
-		Long: `Merge <key_env> → value into encrypted secrets/providers.json.enc.
+		Short: "Set a provider API key in secrets/providers.json",
+		Long: `Merge <key_env> → value into local plaintext secrets/providers.json.
+No passphrase.
 
 Prefer --value (or stdin) so shells do not store the secret in history:
 
   magic secrets set DEEPSEEK_API_KEY --value 'sk-…'
   echo 'sk-…' | magic secrets set DEEPSEEK_API_KEY
-  magic secrets set DEEPSEEK_API_KEY   # reads value from stdin
-
-Requires MAGIC_PASSPHRASE.`,
+  magic secrets set DEEPSEEK_API_KEY   # reads value from stdin`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyEnv := strings.TrimSpace(args[0])
 			if keyEnv == "" {
 				return fmt.Errorf("key_env must be non-empty")
-			}
-			pass := os.Getenv("MAGIC_PASSPHRASE")
-			if pass == "" {
-				return fmt.Errorf("MAGIC_PASSPHRASE required to set provider secrets")
 			}
 			val := valueFlag
 			if val == "" {
@@ -68,10 +65,12 @@ Requires MAGIC_PASSPHRASE.`,
 				return err
 			}
 			dir := core.NewPaths(mh).Secrets
-			if err := secrets.SetProviderSecret(dir, pass, keyEnv, val); err != nil {
+			// Mode-aware: SetProviderSecret enforces the passphrase only for encrypted.
+			if err := secrets.SetProviderSecret(dir, os.Getenv("MAGIC_PASSPHRASE"), keyEnv, val); err != nil {
 				return err
 			}
-			fmt.Printf("set %s in %s/%s\n", keyEnv, dir, secrets.ProvidersFileName)
+			mode := secrets.ResolveSecretMode(dir)
+			fmt.Printf("set %s in %s (mode=%s)\n", keyEnv, secrets.SecretStorePath(dir), mode)
 			return nil
 		},
 	}
@@ -83,7 +82,7 @@ func cmdSecretsList() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List provider secret key names (no values)",
-		Long:  `List key_env names stored in secrets/providers.json.enc. Values are never printed. Requires MAGIC_PASSPHRASE.`,
+		Long:  `List key_env names in local plaintext secrets/providers.json. Values are never printed. No passphrase.`,
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pass := os.Getenv("MAGIC_PASSPHRASE")

@@ -33,18 +33,6 @@ func (a *Adapter) Detect(home string) bool {
 	return err == nil
 }
 
-func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
-	// Single library path: ~/.codebuddy (DeepSeek / EbeeAI docs).
-	// ~/.workbuddy is Detect-only; use capture.overlay ExtraRoots if needed.
-	return adapter.CapturePolicy{
-		Roots: []adapter.RootSpec{
-			{ID: "main", RelHome: ".codebuddy"},
-		},
-		Allow: []string{"models.json"},
-		Deny:  []string{"sessions/**", "cache/**", "logs/**", "*.log"},
-	}
-}
-
 func (a *Adapter) SkillsDir(home string) string { return "" }
 func (a *Adapter) AgentsDir(home string) string { return "" }
 

@@ -25,22 +25,8 @@ func (a *Adapter) Detect(home string) bool {
 	if st, err := os.Stat(root); err == nil && st.IsDir() {
 		return true
 	}
-	// macOS app support presence alone is not enough for Magic capture scope
+	// macOS app support presence alone is not enough for Magic scope
 	return false
-}
-func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
-	return adapter.CapturePolicy{
-		Roots: []adapter.RootSpec{{ID: "main", RelHome: ".trae"}},
-		Allow: []string{
-			"skills/**", "agents/**", "rules/**",
-			"mcp.json", "sandbox.json",
-			"settings.json", "user_rules.md",
-		},
-		Deny: []string{
-			"sessions/**", "cache/**", "logs/**", "tmp/**",
-			"ai_completion/**",
-		},
-	}
 }
 func (a *Adapter) SkillsDir(home string) string {
 	return filepath.Join(home, ".trae", "skills")

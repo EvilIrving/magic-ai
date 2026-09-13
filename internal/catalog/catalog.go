@@ -28,42 +28,37 @@ const (
 
 // ExampleProvidersYAML is written on init when providers.yaml is missing.
 const ExampleProvidersYAML = `# providers.yaml — user provider bindings + model picks (non-secret)
-# API keys live in encrypted $MAGIC_HOME/secrets/providers.json.enc,
+# API keys live in plaintext $MAGIC_HOME/secrets/providers.json (0600),
 # indexed by key_env (logical name). Never store secret values here.
-# magic copy resolves keys via MAGIC_PASSPHRASE — not from process env.
+# magic copy reads that file directly — not process env, no passphrase.
+# .enc is the cloud state of secret files after sync push; not a local file.
 #
 # active: default third-party provider id (magic apply + magic provider use company).
 # Override with env MAGIC_ACTIVE_PROVIDER. "company" is only this alias — not a vendor id.
 #
 # Preferred shape: endpoints[] with id / base_url / protocol.
 # Backward compat: if endpoints empty, top-level base_url+protocol is one endpoint.
+# Relays / gateways are user-defined — add them here; they are not in the builtin catalog.
 
-# active: shu
+# active: deepseek
 
 providers:
   deepseek:
-    base_url: https://api.deepseek.com/v1
-    protocol: openai
     key_env: DEEPSEEK_API_KEY
     # key value never stored here — set with: magic secrets set DEEPSEEK_API_KEY --value …
     pick:
-      - deepseek-chat
-      - deepseek-reasoner
-
-  # Multi-protocol relay example (same key_env + pick, several endpoints):
-  # shu:
-  #   key_env: SHU_API_KEY
-  #   pick: [gpt-5.6-sol]
-  #   endpoints:
-  #     - id: openai-responses
-  #       base_url: https://api.shu.cool/v1
-  #       protocol: openai-responses
-  #     - id: openai-chat
-  #       base_url: https://api.shu.cool/v1
-  #       protocol: openai-chat-completions
-  #     - id: anthropic
-  #       base_url: https://api.shu.cool
-  #       protocol: anthropic-messages
+      - deepseek-flash
+      - deepseek-v4-pro
+    endpoints:
+      - id: anthropic
+        base_url: https://api.deepseek.com/anthropic
+        protocol: anthropic-messages
+      - id: openai-chat
+        base_url: https://api.deepseek.com/v1
+        protocol: openai-chat-completions
+      - id: openai-responses
+        base_url: https://api.deepseek.com/v1
+        protocol: openai-responses
 `
 
 // Endpoint is one protocol-specific base URL under a provider.
@@ -75,11 +70,13 @@ type Endpoint struct {
 
 // Provider is one user-configured API binding (possibly multi-endpoint).
 type Provider struct {
-	BaseURL   string            `yaml:"base_url,omitempty"`
-	Protocol  string            `yaml:"protocol,omitempty"`
-	KeyEnv    string            `yaml:"key_env"`
-	Pick      []string          `yaml:"pick"`
-	Endpoints []Endpoint        `yaml:"endpoints,omitempty"`
+	Name      string     `yaml:"name,omitempty"`
+	Note      string     `yaml:"note,omitempty"`
+	BaseURL   string     `yaml:"base_url,omitempty"`
+	Protocol  string     `yaml:"protocol,omitempty"`
+	KeyEnv    string     `yaml:"key_env"`
+	Pick      []string   `yaml:"pick"`
+	Endpoints []Endpoint `yaml:"endpoints,omitempty"`
 	// Models is optional role→model map for Claude Code projection
 	// (haiku/sonnet/opus/default/reasoning). Unused by other harnesses.
 	Models map[string]string `yaml:"models,omitempty"`
@@ -387,7 +384,7 @@ func RedactKey(key string) string {
 // CopyText returns provider fields + api_key for clipboard/stdout using the
 // first normalized endpoint. Prefer CopyTextEndpoint when a specific endpoint
 // was selected (--protocol / --endpoint).
-// apiKey is the already-resolved secret (from secrets/providers.json.enc);
+// apiKey is the already-resolved secret (from local secrets/providers.json);
 // empty means missing → placeholder <KEY_ENV> plus a one-line note.
 // Formatting is pure: no env or secrets I/O here.
 func CopyText(name string, p Provider, apiKey string, revealKey bool) string {

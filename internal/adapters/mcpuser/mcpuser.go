@@ -22,13 +22,6 @@ func (a *Adapter) Detect(home string) bool {
 	_, err := os.Stat(filepath.Join(home, ".config", "mcp", "mcp.json"))
 	return err == nil
 }
-func (a *Adapter) CapturePolicy() adapter.CapturePolicy {
-	return adapter.CapturePolicy{
-		Roots: []adapter.RootSpec{{ID: "main", RelHome: ".config/mcp"}},
-		Allow: []string{"mcp.json"},
-		Deny:  []string{},
-	}
-}
 func (a *Adapter) SkillsDir(home string) string { return "" }
 func (a *Adapter) AgentsDir(home string) string { return "" }
 func (a *Adapter) MirrorRoot(home string) string {
