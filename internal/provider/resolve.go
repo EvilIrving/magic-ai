@@ -6,13 +6,17 @@ import (
 	"strings"
 
 	"magic/internal/catalog"
+	"magic/internal/provider/builtin"
 )
 
-// Use modes after resolution. Product semantics: official | <providerName>.
+// Use modes after resolution. Product semantics: provider | official | none.
 // "company" is never a mode — only an alias for the library active provider.
+// "official" = first-party path (only where SwitchWriter.SupportsOfficial).
+// "none" = clear Magic-managed entries (works everywhere, incl. Pi/OpenCode).
 const (
 	ModeOfficial = "official"
 	ModeProvider = "provider"
+	ModeClear    = "none"
 )
 
 // ResolvedTarget is the outcome of resolving a CLI use/test target against providers.yaml.
@@ -43,9 +47,27 @@ func IsOfficialAlias(s string) bool {
 	}
 }
 
-// LoadCatalog loads providers.yaml from MAGIC_HOME.
+// IsClearAlias reports aliases meaning "clear the Magic-managed projection".
+// This is the only meaningful "off" state for multi-provider harnesses
+// (Pi / OpenCode) which have no first-party provider path.
+func IsClearAlias(s string) bool {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "none", "off", "clear", "empty", "-":
+		return true
+	default:
+		return false
+	}
+}
+
+// LoadCatalog loads providers.yaml from MAGIC_HOME and overlays the embedded
+// builtin provider template. The user file always wins (see builtin.Merge);
+// template-only providers are readable defaults for `magic provider add`.
 func LoadCatalog(magicHome string) (*catalog.File, error) {
-	return catalog.Load(filepath.Join(magicHome, "providers.yaml"))
+	user, err := catalog.Load(filepath.Join(magicHome, "providers.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	return builtin.Merge(user)
 }
 
 // ResolveUseTarget maps raw CLI arg → official | named provider from the library.
@@ -58,6 +80,9 @@ func ResolveUseTarget(f *catalog.File, raw string) (ResolvedTarget, error) {
 	}
 	lower := strings.ToLower(raw)
 
+	if IsClearAlias(lower) {
+		return ResolvedTarget{Mode: ModeClear, Raw: raw}, nil
+	}
 	if IsOfficialAlias(lower) {
 		return ResolvedTarget{Mode: ModeOfficial, Raw: raw}, nil
 	}

@@ -69,15 +69,19 @@ Harness = 要往里面写配置的 AI coding 工具。用户配的是 `~/.magic-
 
 | 适配器 | apply 投影（API / 模型） | Skills 同步 | MCP |
 |--------|--------------------------|-------------|-----|
-| pi / grok / claude / codex | 是（Grok/Codex 日常用 `provider use`） | 是 | 按各工具文件 |
+| pi / grok / claude / codex | 是（Grok/Codex 日常用 `provider use`） | 是 | 是 |
 | opencode | 是 | 是（`~/.config/opencode/skills`） | 是 |
-| workbuddy | 是（`~/.codebuddy/models.json`） | — | — |
-| gemini | 否（OAuth / `.env`） | — | — |
-| copilot | 否（GitHub 账号） | 是（`~/.copilot/skills`） | 部分 |
+| workbuddy | 是（`~/.codebuddy/models.json`） | — | 是 |
+| gemini | 否（OAuth / `.env`） | — | 是（过渡，新目标 antigravity-cli） |
+| copilot | 否（GitHub 账号） | 是（`~/.copilot/skills`） | 是 |
 | trae | 否 | 是 | 是 |
+| cursor / antigravity-cli / kimi-code / qoder / qoder-cn / cline | 否（账号 / UI） | 是 | 是 |
+
+覆盖范围按 OpenRouter app 用量分档，v1 核心 + 推迟长尾见
+[supported-harnesses.md](./supported-harnesses.md)（D20）。
 | mcpuser | 否（不是模型 provider） | — | 目标是 `~/.config/mcp/mcp.json` |
 
-Skills 目标另含 **cursor**（无产品适配器）。**不做 windsurf。**
+Skills 目标含 `cursor` 等全量路径表；v1 核心 harness 见 [supported-harnesses.md](./supported-harnesses.md)（用量分档，D20）。**不做 windsurf。**
 
 路径细节见 [harness-matrix.md](./harness-matrix.md)。
 

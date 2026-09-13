@@ -30,6 +30,37 @@ harness / skills 路径这份清单的**来源**必须记住，以便复核与�
 Cherry Studio 内置几十家的是 **provider**（它是聊天客户端，不管 harness）。Magic 的 provider 覆盖
 已经够宽，真正要扩的是 harness。
 
+## 用量驱动的 v1 覆盖范围（2026-09-13 锁定）
+
+依据：OpenRouter apps 榜（2026-09，app 维度，见下表编号）+ 模型 token 榜（截图）。
+用途：给 v1 定范围，**不是**「全市场都做」——长尾推迟（决策 D20）。
+
+| 档 | 含义 | harness（括号 = app 榜名次） |
+|---|---|---|
+| **P0 已有** | 已实现 adapter + MCP + skills | codex(2), claude(3), pi(5), grok(6), opencode(12), copilot-cli(14), workbuddy(17), trae-cli(21), gemini(22，过渡) |
+| **P1 本次补齐** | 用量高且格式已调研 → 已实现 | cursor(4), antigravity-cli(10，代 gemini), kimi-code(13), qoder(23) / qoder-cn(25), cline(27) |
+| **P2 下一批** | 用量不错，但配置面待调研 | droid(26), kiro(18), minimax-code(29), zcode(7), hermes(11), openclaw(16), deepseek-harness(15), oh-my-pi(8), dimagent(9), alma(20), craftagent(24), cola(28) |
+| **长尾（不做 v1）** | 其余 vercel-labs/skills 名单 | ~50 家；skills 路径表已含，`magic skills sync --target all` 可达 |
+
+> **模型榜（截图）不直接对应 harness**：它是 OpenRouter 上各模型 token 用量，说明的是
+> **provider/模型覆盖**要跟得上——Magic 靠内置模板 `providers.yaml` + `registry/models.json`（models.dev）
+> 覆盖，不替用户选模型。Top provider：tencent(Hy), openai, z.ai(GLM), deepseek, xiaomi(MiMo),
+> google(Gemini), meta, nvidia, minimax, moonshot(Kimi), anthropic, upstage。
+
+> 不做：**roo / windsurf**（D13，均已停运）。P2 与长尾**不是 v1 目标**（D20）。
+>
+> **2026-09-13 追加**（第二轮调研）：已补 `kiro`、`droid`、`zcode`、`qwen-code`、`iflow-cli`、`kilo`、`zed`
+> 的 adapter + MCP（JSON 方言）。剩余 P2/长尾中，格式已查但需新 writer 的：Hermes/Continue/Goose（YAML）、
+> Mistral Vibe（TOML 数组表）、OpenClaw（JSON5）；UI-only：MiniMax/Lingma/Amp/Cortex。详见
+> [mcp-design.md](./mcp-design.md)「第二轮调研」。
+>
+> **2026-09-13 第三轮（排行榜全量，D21）**：用户榜单第 2–30 名逐家调研，新增 **`omp`（Oh My Pi）、`hermes`、
+> `mimocode`（MiMo Code）、`dimagent`、`openclaw`** 完整 adapter；MCP 新增 4 dialect + `FormatYAML`。
+> 已产出一手配置格式的还有 `dsh`（DeepSeek Harness，cordis 插件，P3）、`craft`（Craft Agents，workspace 源结构待定）、
+> `mmx`（MiniMax Code，仅模型配置）。明确不做/不投：`roo`（已停运，D22）、Alma/MiniMax-MCP/Lingma（UI-only，D23）、`dsh` MCP（D24）、
+> 身份待确认的 `cola`（D25）。完整证据、能力矩阵、实施批次与两轮自审见
+> [harness-rollout-plan.md](./harness-rollout-plan.md)。
+
 ## 能力分档（决定成本）
 
 | 档 | 内容 | 成本 | 覆盖手段 |
@@ -43,7 +74,7 @@ Cherry Studio 内置几十家的是 **provider**（它是聊天客户端，不�
 
 ---
 
-## 现状（已注册 10 个 adapter）
+## 现状（已注册 28 个 adapter，含 `mcpuser`）
 
 | ID | 名称 | L2 skills | agents | MCP | models 配置 | L3 writer |
 |---|---|---|---|---|---|---|
@@ -56,6 +87,23 @@ Cherry Studio 内置几十家的是 **provider**（它是聊天客户端，不�
 | `gemini` | Gemini CLI | | | ✅ | | ❌ stub |
 | `copilot` | GitHub Copilot CLI | ✅ | ✅ | ✅ | | ❌ stub |
 | `trae` | Trae | ✅ | ✅ | ✅ | | ❌ stub |
+| `cursor` | Cursor | ✅ | — | ✅ | — | ❌ |
+| `antigravity-cli` | Antigravity CLI | ✅ | — | ✅ | ❓ | ❌ |
+| `kimi-code` | Kimi Code | ✅ | ✅ | ✅ | ❓ | ❌ |
+| `qoder` / `qoder-cn` | Qoder / Qoder CN | ✅ | ✅ | ✅ | ❓ | ❌ |
+| `cline` | Cline | ✅ | — | ✅ | ❓ | ❌ |
+| `kiro` | Kiro | ✅ | ✅ | ✅ | ❓ | ❌ |
+| `droid` | Droid (Factory) | ✅ | ✅ | ✅ | ❓ | ❌ |
+| `zcode` | ZCode | ✅ | — | ✅ | ❓ | ❌ |
+| `qwen-code` | Qwen Code | ✅ | ✅ | ✅ | ○ | ○ |
+| `iflow` | iFlow CLI | ✅ | — | ✅ | ○ | ○ |
+| `kilo` | Kilo Code | ✅ | ✅ | ✅ | ○ | ❌ |
+| `zed` | Zed | ✅ | — | ✅ | ❓ | ❌ |
+| `omp` | Oh My Pi | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `hermes` | Hermes Agent | ✅ | — | ✅ | ✅ | ❌ |
+| `mimocode` | MiMo Code | ✅ | ✅ | ✅ | ✅ | ○ |
+| `dimagent` | DimAgent | — | — | ✅ | ❓ | ❌ |
+| `openclaw` | OpenClaw | ✅ | — | ✅ | ❓ | ❌ |
 | `mcpuser` | MCP 配置镜像（不是 harness） | | | ✅ | | n/a |
 
 另有 `cursor` 在 skills 目标里但无产品 adapter。**不做 windsurf**（产品濒临停运 / 已被收购，2026；不要因 vercel 名单里有它而加回）。
@@ -97,7 +145,10 @@ Cherry Studio 内置几十家的是 **provider**（它是聊天客户端，不�
 
 这是 `vercel-labs/skills`（README → Supported Agents，快照 **2026-09-11**；来源见文首「名单来源」）
 的完整 skills 目标表（全局路径）。**直接采纳为固定配置，不逐次探测**；以后新增 agent 就加一行。
-`magic skills sync` 把目录映射补全，一次性覆盖这些 agent：
+**代码实现**：`internal/skills/paths.go` 的 `globalSkills` 表（`KnownAgent`/`AllAgents`/`GlobalTargetDir`）。
+`magic skills sync` 默认只写 `DefaultAgents`（有产品 adapter 的 8 家）；加
+`--target all` 才一次性覆盖下面全部（避免给未安装工具造空目录）。`--target <id>` 可任选一家。
+（`windsurf` / `roo` 已剔除，D13。）
 
 ```
 aider-desk        ~/.aider-desk/skills/
@@ -200,8 +251,11 @@ adal              ~/.adal/skills/
 > `✅ 已实现` · `○ 工具支持、Magic 未做` · `❓ 待调研` · `— 不支持/不适用` · `● 只能写文件、走不了配置`
 
 
-> 目标表，不是现状。当前代码 `adapter.Caps` 只有 `Skills/Agents/MCP/Models/Themes`，
-> 缺 `hooks`/`custom` 显式表达，且部分值偏低（claude 的 mcp、gemini 的 skills）。
+> **代码现状（2026-09-13）**：`adapter.Caps` 现有 `Skills/Agents/MCP/Hooks/Models/Themes`。
+> 已实现的 MCP 投影（D18）覆盖 claude / codex / grok / opencode / pi / gemini / copilot / workbuddy / trae / mcpuser；
+> hooks 走 `packs/harness/<id>/hooks/…` 字段级合并（D19，B 方案）。`custom` 无单独 cap，即 `packs/harness/<id>/` 本身。
+> 未接入的 harness（cursor / qoder / kimi-code / qwen / antigravity-cli …）是**名单已在、适配器未写**；
+> MCP 目标表在 `internal/mcp/target.go`，加一行即可接入新 harness。
 >
 > **2026-09-11 调研补充**（来源见各行左栏对应工具的官方文档）：
 > - **copilot**：支持 BYOK 自定义模型（2026-04）→ `models` 从 `—` 改 `○`。

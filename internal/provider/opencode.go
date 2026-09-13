@@ -18,10 +18,11 @@ const opencodeMagicPrefix = "magic-"
 // third-party Apply writes apiKey into provider.options for a working offline path.
 type OpenCodeWriter struct{}
 
-func (OpenCodeWriter) Harness() string      { return HarnessOpenCode }
-func (OpenCodeWriter) Implemented() bool    { return true }
-func (OpenCodeWriter) BackupPrefix() string { return "opencode" }
-func (OpenCodeWriter) BackupExt() string    { return ".json" }
+func (OpenCodeWriter) Harness() string        { return HarnessOpenCode }
+func (OpenCodeWriter) Implemented() bool      { return true }
+func (OpenCodeWriter) SupportsOfficial() bool { return false } // OpenCode is a multi-provider aggregator
+func (OpenCodeWriter) BackupPrefix() string   { return "opencode" }
+func (OpenCodeWriter) BackupExt() string      { return ".json" }
 func (OpenCodeWriter) ConfigPath(userHome string) string {
 	dir := filepath.Join(userHome, ".config", "opencode")
 	jsonc := filepath.Join(dir, "opencode.jsonc")
@@ -114,7 +115,7 @@ func (w OpenCodeWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
 		fmt.Fprintf(&b, "Backup: %s\n", bak)
 	}
 	if req.Official {
-		b.WriteString("OpenCode: cleared Magic-managed provider.* / model (official).\n")
+		b.WriteString("OpenCode: cleared Magic-managed provider.* / model (none — OpenCode is multi-provider).\n")
 	} else {
 		fmt.Fprintf(&b, "OpenCode: provider %s baseURL=%s model=%v\n",
 			opencodeProviderID(req.Name), req.Endpoint.BaseURL, root["model"])
@@ -171,7 +172,7 @@ func (w OpenCodeWriter) Status(ctx Context) string {
 func (w OpenCodeWriter) List(ctx Context) string {
 	f, _ := ctx.File()
 	var b strings.Builder
-	b.WriteString("  official       clear Magic-managed providers in opencode.json\n")
+	b.WriteString("  none           clear Magic-managed providers in opencode.json (OpenCode is multi-provider)\n")
 	if f == nil {
 		return b.String()
 	}

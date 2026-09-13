@@ -1,6 +1,6 @@
 # Hooks 投影设计（归属 + 事件模型）
 
-状态：**设计稿（调研完成，未实现）**。调研日期 **2026-09-11**，来源见文末。
+状态：**已实现**（B 方案：`packs/harness/<id>/hooks/…` 字段级合并写回）。决定见 [decisions.md](./decisions.md) D19。
 目标：确定 hooks 在 Magic 里放哪、各 harness 怎么投、事件怎么对齐。
 
 ## 结论
@@ -91,9 +91,12 @@ for harness in enabled ∩ detected:
 - 代码式：`packs/harness/pi/extensions/*.ts`、`packs/harness/opencode/plugins/*.ts` 原样写回。
 - 不支持 → `n/a`，不报错、不造空文件。
 
-## 未定
+## 已定 / 待定
 
-见 [open-questions.md](./open-questions.md) A5 / A6 / A8。（写入方式已定：**字段级合并**，见 [decisions.md](./decisions.md) D5。）
+**已定**：A5（不写 Cursor hooks）、A6（不写 Codex trust 元数据）、A8（路径不折 `~`），均见 D19。
+写入方式：字段级合并（D5）。
+
+**未定**：无。
 
 ## 调研来源（2026-09-11）
 

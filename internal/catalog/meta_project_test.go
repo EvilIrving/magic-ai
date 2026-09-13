@@ -39,7 +39,7 @@ func TestBuildPiProviderEntryEnrichesFromMeta(t *testing.T) {
 	}
 
 	ep := Endpoint{ID: "openai-responses", BaseURL: "https://api.shu.cool/v1", Protocol: ProtocolOpenAIResponses}
-	entry := BuildPiProviderEntry(ep, "SHU_API_KEY", []string{"gpt-5.6-sol", "unknown-pick"}, modelfile.MetaResolver(magic))
+	entry := BuildPiProviderEntry(ep, "sk-real-pi-key", []string{"gpt-5.6-sol", "unknown-pick"}, modelfile.MetaResolver(magic))
 	if len(entry.Models) != 2 {
 		t.Fatalf("%+v", entry.Models)
 	}

@@ -140,7 +140,7 @@ var PiOpenAIProtocolPreference = []string{
 type PiProviderEntry struct {
 	BaseURL string         `json:"baseUrl"`
 	API     string         `json:"api"`
-	APIKey  string         `json:"apiKey"` // "$KEY_ENV" — never plaintext
+	APIKey  string         `json:"apiKey"` // real provider key (decisions.md D3)
 	Models  []PiModelEntry `json:"models"`
 }
 
@@ -169,16 +169,10 @@ type PiModelEntry struct {
 type PickMetaResolver func(pickID string) (modelfile.Model, bool)
 
 // BuildPiProviderEntry builds a Magic-managed Pi provider block.
-// apiKeyRef must be like "$SHU_API_KEY" (env-style placeholder, not plaintext).
+// apiKey is the real secret value (decisions.md D3); callers without a key
+// should skip projection instead of writing a placeholder.
 // resolvePickMeta is optional; when set, each pick is enriched from registry/models.json.
-func BuildPiProviderEntry(ep Endpoint, keyEnv string, pick []string, resolvePickMeta PickMetaResolver) PiProviderEntry {
-	ref := keyEnv
-	if ref != "" && !strings.HasPrefix(ref, "$") {
-		ref = "$" + ref
-	}
-	if ref == "" {
-		ref = "$API_KEY"
-	}
+func BuildPiProviderEntry(ep Endpoint, apiKey string, pick []string, resolvePickMeta PickMetaResolver) PiProviderEntry {
 	models := make([]PiModelEntry, 0, len(pick))
 	for _, id := range pick {
 		id = strings.TrimSpace(id)
@@ -190,7 +184,7 @@ func BuildPiProviderEntry(ep Endpoint, keyEnv string, pick []string, resolvePick
 	return PiProviderEntry{
 		BaseURL: ep.BaseURL,
 		API:     ProtocolToPiAPI(ep.Protocol),
-		APIKey:  ref,
+		APIKey:  apiKey,
 		Models:  models,
 	}
 }

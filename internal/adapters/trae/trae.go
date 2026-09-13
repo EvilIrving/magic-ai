@@ -1,3 +1,10 @@
+// Package trae is the Magic adapter for Trae (ByteDance), global and CN builds.
+//
+// Source: vendor-doc | docs.trae.ai/ide/skills · docs.trae.cn/ide_skills | checked 2026-09-13 | verified
+//   (skills ~/.trae/skills, CN ~/.trae-cn/skills; MCP ~/.trae/mcp.json)
+//
+// Never: mirror ~/Library/Application Support/Trae/User - IDE UI and login
+// state, not user config (docs/harness-profiles.md §8).
 package trae
 
 import (

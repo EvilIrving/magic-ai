@@ -148,6 +148,32 @@ func (ctx *scopeCtx) targetDir(agent string) (string, error) {
 	return ProjectTargetDir(agent, ctx.ScopeRoot)
 }
 
+// agentTarget is one resolved agent → skills dir.
+type agentTarget struct {
+	agent string
+	dir   string
+}
+
+// uniqueTargets resolves agents to dirs, dropping duplicate dirs: several
+// long-tail agents share the same global path (e.g. ~/.agents/skills).
+func (ctx *scopeCtx) uniqueTargets() (out []agentTarget, errs []error) {
+	seen := map[string]bool{}
+	for _, agent := range ctx.Agents {
+		dir, err := ctx.targetDir(agent)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		abs, _ := filepath.Abs(dir)
+		if seen[abs] {
+			continue
+		}
+		seen[abs] = true
+		out = append(out, agentTarget{agent: agent, dir: dir})
+	}
+	return out, errs
+}
+
 func (ctx *scopeCtx) sourceAvailable() bool {
 	if st, err := os.Stat(ctx.PrimarySource); err == nil && st.IsDir() {
 		return true
@@ -463,14 +489,13 @@ func Sync(o Options) (*Result, error) {
 		if ctx.SecondarySource != "" {
 			r.line("  inherit global: %s", ctx.SecondarySource)
 		}
-		for _, agent := range ctx.Agents {
-			target, err := ctx.targetDir(agent)
-			if err != nil {
-				r.errf("%v", err)
-				continue
-			}
-			r.line("- %s: %s", agent, target)
-			syncTarget(target, ctx, o, r)
+		targets, errs := ctx.uniqueTargets()
+		for _, e := range errs {
+			r.errf("%v", e)
+		}
+		for _, t := range targets {
+			r.line("- %s: %s", t.agent, t.dir)
+			syncTarget(t.dir, ctx, o, r)
 		}
 		return nil
 	})
@@ -490,13 +515,12 @@ func Status(o Options) (*Result, error) {
 		if !ctx.sourceAvailable() {
 			r.line("  source missing; still scanning managed stale links")
 		}
-		for _, agent := range ctx.Agents {
-			target, err := ctx.targetDir(agent)
-			if err != nil {
-				r.errf("%v", err)
-				continue
-			}
-			statusTarget(target, agent, ctx, o, r)
+		targets, errs := ctx.uniqueTargets()
+		for _, e := range errs {
+			r.errf("%v", e)
+		}
+		for _, t := range targets {
+			statusTarget(t.dir, t.agent, ctx, o, r)
 		}
 		return nil
 	})
@@ -574,20 +598,19 @@ func Clean(o Options) (*Result, error) {
 		if o.Orphaned {
 			r.line("  also remove orphaned .agents/skills and packs/skills broken links")
 		}
-		for _, agent := range ctx.Agents {
-			target, err := ctx.targetDir(agent)
-			if err != nil {
-				r.errf("%v", err)
-				continue
-			}
-			if st, err := os.Stat(target); err != nil || !st.IsDir() {
+		targets, errs := ctx.uniqueTargets()
+		for _, e := range errs {
+			r.errf("%v", e)
+		}
+		for _, t := range targets {
+			if st, err := os.Stat(t.dir); err != nil || !st.IsDir() {
 				if o.Verbose {
-					r.line("- %s: target missing, skip", agent)
+					r.line("- %s: target missing, skip", t.agent)
 				}
 				continue
 			}
-			r.line("- %s: %s", agent, target)
-			cleanupTarget(target, ctx, o, r)
+			r.line("- %s: %s", t.agent, t.dir)
+			cleanupTarget(t.dir, ctx, o, r)
 		}
 		return nil
 	})
@@ -622,13 +645,12 @@ func Init(o Options) (*Result, error) {
 		if err := ensureDir(ctx.PrimarySource, o.DryRun, r); err != nil {
 			return err
 		}
-		for _, agent := range ctx.Agents {
-			target, err := ctx.targetDir(agent)
-			if err != nil {
-				r.errf("%v", err)
-				continue
-			}
-			_ = ensureDir(target, o.DryRun, r)
+		targets, errs := ctx.uniqueTargets()
+		for _, e := range errs {
+			r.errf("%v", e)
+		}
+		for _, t := range targets {
+			_ = ensureDir(t.dir, o.DryRun, r)
 		}
 		return nil
 	})
@@ -652,13 +674,12 @@ func Doctor(o Options) (*Result, error) {
 			r.errf("%v", err)
 			return err
 		}
-		for _, agent := range ctx.Agents {
-			target, err := ctx.targetDir(agent)
-			if err != nil {
-				r.errf("%v", err)
-				continue
-			}
-			doctorTarget(target, agent, ctx, o, r)
+		targets, errs := ctx.uniqueTargets()
+		for _, e := range errs {
+			r.errf("%v", e)
+		}
+		for _, t := range targets {
+			doctorTarget(t.dir, t.agent, ctx, o, r)
 		}
 		return nil
 	})
@@ -738,14 +759,14 @@ func Remove(o Options) (*Result, error) {
 	}
 	return runScopes(o, func(sc Scope, ctx *scopeCtx, r *Result) error {
 		r.line("remove %s scope target links (source kept)", sc)
-		for _, agent := range ctx.Agents {
-			target, err := ctx.targetDir(agent)
-			if err != nil {
-				r.errf("%v", err)
-				continue
-			}
+		targets, errs := ctx.uniqueTargets()
+		for _, e := range errs {
+			r.errf("%v", e)
+		}
+		for _, at := range targets {
+			target := at.dir
 			if st, err := os.Stat(target); err != nil || !st.IsDir() {
-				r.line("- %s: target missing, skip", agent)
+				r.line("- %s: target missing, skip", at.agent)
 				continue
 			}
 			for _, skill := range o.Skills {
@@ -753,7 +774,7 @@ func Remove(o Options) (*Result, error) {
 				fi, err := os.Lstat(targetSkill)
 				if err != nil {
 					if o.Verbose {
-						r.line("  absent: %s/%s", agent, skill)
+						r.line("  absent: %s/%s", at.agent, skill)
 					}
 					continue
 				}

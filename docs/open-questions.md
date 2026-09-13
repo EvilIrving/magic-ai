@@ -15,12 +15,12 @@
 |---|---|---|---|
 | A1 | `sync` 加密口令来源 | 环境变量 `MAGIC_PASSPHRASE` / 系统 keychain / 本机文件 | `secrets-and-sync.md` |
 | A2 | Codex `env_key` 是否也写真值 | 保持 `env_key`（Codex 原生机制）/ 改成真值 | `usage.md`、`harness-matrix.md` |
-| A3 | `magic login` 细化 | 用哪个 TUI 库；写库粒度（直写 vs dry-run）；无 `/models` 的 provider 回退顺序；多协议是否按 endpoint 再分；是否顺带写 `models_meta` | `provider-onboarding.md` |
+| ~~A3~~ | `magic login` 细化 — **已定**（D17） | TUI=Bubble Tea；确认后写库；回退 live→内置 pick→registry→手动；不写 `models_meta` | `provider-onboarding.md` |
 | A4 | 多机冲突检测实现路径 | 方向已定（比记录不比整份文件），**怎么实现未定** | `AGENTS.md` |
-| A5 | Cursor 会加载 Claude hooks | 两边都写会重复触发 / 只写原生那份 | `hooks-design.md` |
-| A6 | Codex hooks 信任 | Magic 写的是否算 managed（用户是否要逐条 trust） | `hooks-design.md` |
-| A7 | MCP 管理条目标记 | `magic-` 前缀 / 单独 manifest | `mcp-design.md` |
-| A8 | hooks 里本机路径是否折成 `~` | 折（可移植）/ 不折（原样） | `hooks-design.md` |
+| ~~A5~~ | Cursor 加载 Claude hooks — **已定**（D19） | 本仓库不做 Cursor 产品适配器 → **不写 Cursor hooks**；将来加时只写 Cursor 原生那份 | `hooks-design.md` |
+| ~~A6~~ | Codex hooks 信任 — **已定**（D19） | 按普通用户配置写，**不加** trust 元数据（Codex 自身机制处理） | `hooks-design.md` |
+| ~~A7~~ | MCP 管理条目标记 — **已定**（D18） | **无前缀**；按名字出现在 `packs/mcp/mcp.yaml` 判定 Magic 管理，用户其它条目永不删 | `mcp-design.md` |
+| ~~A8~~ | hooks 路径折 `~` — **已定**（D19） | **不折**，原样写 | `hooks-design.md` |
 
 > 已不属于决策（写进 C 或已定）：代码式 hooks 归类（已定：文档归 hooks、实现走 custom）；
 > 重复 provider 合并（= 字段级合并）；`login` 后 auto-push（约定不自动）；
@@ -36,12 +36,15 @@
 
 | # | 项 | 状态 |
 |---|---|---|
-| B1 | Droid / Kiro / Goose / Zed / Continue 的 **hook 事件名** | 已知有 hooks，事件名待抄 |
-| B2 | iFlow / Amp / OpenHands / Zencoder / Mistral Vibe / Trae / Lingma / Cortex / Pochi / MiniMax 的 **hooks** | ❓ |
+| B1 | Droid / Kiro / Goose / Zed / Continue 的 **hook 事件名** | 已知有 hooks，事件名待抄；**这些属 v1 的 P2/长尾**（D20） |
+| B2 | iFlow / Amp / OpenHands / Zencoder / Mistral Vibe / Trae / Lingma / Cortex / Pochi / MiniMax 的 **hooks** | ❓（P2/长尾） |
 | B3 | Trae / Mistral Vibe / Cortex / Pochi / MiniMax 的 **custom**（per-harness 定制文件面） | ❓ |
 | B4 | Trae / Gemini / Antigravity CLI / Kiro / OpenHands / Zencoder 的 **models 配置** | ❓ |
 | B5 | **grok** 的原生 mcp（`config.toml` 还是只靠兼容读） | ❓ |
 | B6 | Qwen Code / Crush / Goose / iFlow / MiniMax 的 **skills 目录** | ❓ |
+
+> 哪些 harness 值得做、哪些推迟，见 [supported-harnesses.md](./supported-harnesses.md) 的
+> 「用量驱动的 v1 覆盖范围」（D20）。B 表不再单独决定优先级。
 
 **第三轮已查：**
 
@@ -54,18 +57,20 @@
 
 ## C. 代码待改（文档已定，实现未跟）
 
-| # | 差异 | 目标 |
-|---|---|---|
-| C1 | `internal/secrets` 仍是本地加密/明文双模式 + `MAGIC_SECRETS_MODE`；sync 仍把本地 `.enc` 当上传物 | 本地恒 `secrets/providers.json` 明文、无 `.enc`；push 加密后上传为 `<rel>.enc`；pull 解密落回明文。无 `MAGIC_SECRETS_MODE` |
-| C2 | Pi / WorkBuddy apply 仍写 `$KEY_ENV` / `${KEY_ENV}` | 写**真值** key（D3） |
-| C3 | apply 的 `<adapterID>.json.enc` reinject | 删除（本地即最终内容，无 reinject） |
-| C4 | 内置模板合并进 `providers.yaml` + `magic provider add` | 未实现 |
-| C5 | `magic login`（TUI + 拉模型 + 勾选） | 未实现 |
-| C6 | `magic add path` | 未实现 |
-| C7 | apply 写回仍是整文件覆盖（非字段级合并） | 改为字段级合并 |
-| C8 | `magic status` 仍列全部 adapter（含未装） | 只列已安装的 |
-| C9 | `magic guide` / `--json` / 桌面端 / 签名发行 | 未实现 |
-| C10 | MCP 写 Codex/Grok 的 TOML 是否复用 `internal/provider` 已有处理 | 待定 |
+更新：2026-09-13 第二轮。✅ = 已落代码并有单测。
+
+| # | 项 | 状态 | 落点 |
+|---|---|---|---|
+| C1 | 本地恒 `secrets/providers.json` 明文、无 `.enc`；push 加密上传 `<rel>.enc`；pull 解密回明文；无 `MAGIC_SECRETS_MODE` | ✅ | `internal/secrets`、`internal/sync/r2.go` |
+| C2 | Pi / WorkBuddy 写**真值** key（D3） | ✅ | `catalog.BuildPiProviderEntry`、`provider/pi.go`、`provider/workbuddy.go`、`core/providers_apply.go` |
+| C3 | 删除 apply 的 `<adapterID>.json.enc` reinject | ✅ | `core/apply.go`、`core/claude_json.go`、`internal/secrets/store.go` |
+| C4 | 内置模板合并进 cfg 读取 + `magic provider add` | ✅ | `provider/builtin`（`Merge` / `AddSelection`）、`provider.LoadCatalog`、`cmd/magic/provider_cmd.go` |
+| C5 | `magic login`（TUI + 拉模型 + 勾选） | ✅ | 已落代码（`internal/login` Bubble Tea；`internal/provider/modelfetch.go`；`cmd/magic/login.go`）。决定见 D17 |
+| C6 | `magic add path` | ✅ | 早已实现（`cmd/magic/add.go`、`core/add_path.go`） |
+| C7 | apply 写回字段级合并（非整文件覆盖） | ✅ | `core/merge.go`（JSON deep merge + TOML section upsert；AGENTS.md 等整份覆盖） |
+| C8 | `magic status` 只列已安装 harness（D12） | ✅ | `cmd/magic/main.go` |
+| C9 | `magic guide` / `--json`（桌面端 / 签名发行不在本仓库范围） | ✅ / ➖ | `cmd/magic/main.go`（guide、`status --json`、`adapters --json`）；桌面/签名为独立产品 |
+| C10 | MCP 写 Codex/Grok 的 TOML 是否复用 `internal/provider` 已有处理 | ✅ | 自写 `internal/mcp/toml.go`（`[mcp_servers.<name>]` 字段级 upsert，保留用户同表其它键）；D18 |
 
 ---
 
@@ -73,4 +78,4 @@
 
 - **A**：勾选项，我落进对应文档。
 - **B**：还没查的配置面（B1–B3），我可以并行查。
-- **C**：文档已定、代码没改；等你说「开始写代码」再动。
+- **C**：已执行到 2026-09-13 第三轮；**C1–C10 全部已落代码并测试**。

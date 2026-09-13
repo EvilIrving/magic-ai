@@ -49,10 +49,11 @@ func CodexCatalogJSONValue(userHome string) string {
 // CodexWriter projects active/named provider → Codex model_provider + [model_providers.<name>].
 type CodexWriter struct{}
 
-func (CodexWriter) Harness() string      { return HarnessCodex }
-func (CodexWriter) Implemented() bool    { return true }
-func (CodexWriter) BackupPrefix() string { return "config" }
-func (CodexWriter) BackupExt() string    { return ".toml" }
+func (CodexWriter) Harness() string        { return HarnessCodex }
+func (CodexWriter) Implemented() bool      { return true }
+func (CodexWriter) SupportsOfficial() bool { return true }
+func (CodexWriter) BackupPrefix() string   { return "config" }
+func (CodexWriter) BackupExt() string      { return ".toml" }
 func (CodexWriter) ConfigPath(userHome string) string {
 	return CodexConfigPath(userHome)
 }

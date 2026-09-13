@@ -1,3 +1,8 @@
+// Package stub holds unimplemented harness placeholders.
+//
+// Source: internal | docs/supported-harnesses.md (capability matrix) | verified
+// A stub reports Implemented()=false so `magic status` shows n/a instead of
+// pretending a projection exists. Never: let a stub write files.
 package stub
 
 import (

@@ -33,8 +33,21 @@
 | copilot | `.copilot` | yes | yes | 否 | 否 | 不碰 `config.json`（含 auth） |
 | workbuddy | `.codebuddy` | — | — | 是 | 是 | Detect 亦认 `.workbuddy` |
 | trae | `.trae` | yes | yes | 否 | 否 | 不碰 Application Support |
+| cursor | `.cursor` | yes | — | 否 | 否 | skills/MCP/hooks；无 model writer（D20） |
+| antigravity-cli | `.gemini/antigravity-cli` | yes | — | 否 | 否 | MCP 在 `~/.gemini/config/mcp_config.json` |
+| kimi-code | `.kimi-code` | yes | yes | 否 | 否 | MCP `~/.kimi-code/mcp.json` |
+| qoder / qoder-cn | `.qoder` / `.qoder-cn` | yes | yes | 否 | 否 | settings.json 含 mcp |
+| cline | `.cline` | yes | — | 否 | 否 | MCP `~/.cline/mcp.json`；skills `.agents` |
+| kiro | `.kiro` | yes | yes | 否 | 否 | MCP `~/.kiro/settings/mcp.json` |
+| droid | `.factory` | yes | yes | 否 | 否 | MCP `~/.factory/mcp.json` |
+| zcode | `.zcode` | yes | — | 否 | 否 | MCP `~/.zcode/cli/config.json` `mcp.servers` |
+| omp | `.omp/agent` | yes | yes | 否 | 否 | MCP `mcp.json`；config.yml/models.yml |
+| hermes | `.hermes` | yes | — | 否 | 否 | MCP `config.yaml` `mcp_servers`（YAML） |
+| mimocode | `.config/mimocode` | yes | yes | 否 | 否 | OpenCode 方言；`mimocode.json` `mcp` |
+| dimagent | `.dim/v2` | — | — | 否 | 否 | MCP `mcp.json`；skills 目录未证实 |
+| openclaw | `.openclaw` | yes | — | 否 | 否 | MCP `openclaw.json` `mcp.servers`（JSON5） |
 
-Skills 同步目标（`DefaultAgents`）：`claude, codex, cursor, pi, grok, opencode, copilot, trae`。cursor **仅** skills，无产品适配器。
+Skills 同步目标（`DefaultAgents`）：`claude, codex, cursor, pi, grok, opencode, copilot, trae, antigravity-cli, qoder, qoder-cn, cline, kimi-code, workbuddy, omp, hermes, mimocode, openclaw`。
 
 ---
 

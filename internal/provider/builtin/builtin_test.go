@@ -96,3 +96,68 @@ func TestTemplateHasDeepSeekAnthropicEndpoint(t *testing.T) {
 	}
 	t.Fatal("deepseek: expected anthropic-messages endpoint")
 }
+
+func TestMergeUserWins(t *testing.T) {
+	user := &catalog.File{
+		Active: "mine",
+		Providers: map[string]catalog.Provider{
+			"deepseek": {
+				KeyEnv:    "MY_DEEPSEEK_KEY",
+				Pick:      []string{"custom-model"},
+				Endpoints: []catalog.Endpoint{{ID: "relay", BaseURL: "https://relay.example.com", Protocol: catalog.ProtocolOpenAIChatCompletions}},
+				Models:    map[string]string{"haiku": "h", "default": "d-user"},
+			},
+		},
+	}
+	merged, err := Merge(user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if merged.Active != "mine" {
+		t.Fatalf("active lost: %q", merged.Active)
+	}
+	// Template-only providers are available.
+	if _, ok := merged.Providers["zai"]; !ok {
+		t.Fatal("template provider zai missing after merge")
+	}
+	ds := merged.Providers["deepseek"]
+	if ds.KeyEnv != "MY_DEEPSEEK_KEY" {
+		t.Fatalf("user key_env must win: %q", ds.KeyEnv)
+	}
+	if len(ds.Endpoints) != 1 || ds.Endpoints[0].ID != "relay" {
+		t.Fatalf("user endpoints must replace whole: %+v", ds.Endpoints)
+	}
+	if len(ds.Pick) != 1 || ds.Pick[0] != "custom-model" {
+		t.Fatalf("user pick must replace whole: %+v", ds.Pick)
+	}
+	if ds.Models["default"] != "d-user" {
+		t.Fatalf("user model role must win: %+v", ds.Models)
+	}
+}
+
+func TestAddSelection(t *testing.T) {
+	user := &catalog.File{Providers: map[string]catalog.Provider{"deepseek": {KeyEnv: "KEEP"}}}
+	out, added, skipped, missing, err := AddSelection(user, []string{"zai", "deepseek", "nope"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(added) != 1 || added[0] != "zai" {
+		t.Fatalf("added=%v", added)
+	}
+	if len(skipped) != 1 || skipped[0] != "deepseek" {
+		t.Fatalf("skipped=%v", skipped)
+	}
+	if len(missing) != 1 || missing[0] != "nope" {
+		t.Fatalf("missing=%v", missing)
+	}
+	if out.Providers["deepseek"].KeyEnv != "KEEP" {
+		t.Fatal("existing provider overwritten")
+	}
+	if _, ok := out.Providers["zai"]; !ok {
+		t.Fatal("zai not added")
+	}
+	// Original file must be untouched.
+	if len(user.Providers) != 1 {
+		t.Fatal("AddSelection mutated the input file")
+	}
+}

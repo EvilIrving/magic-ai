@@ -41,13 +41,20 @@ func (c *Context) File() (*catalog.File, error) {
 }
 
 // SwitchWriter projects library selection into one harness's on-disk dialect.
-// official → clear Magic-managed overrides / restore official path.
-// provider → project selected provider's matching endpoint (+ secret when needed).
+// official → clear Magic-managed overrides / restore the first-party path;
+//
+//	only valid where SupportsOfficial() is true.
+//
+// none     → always just clear Magic-managed entries (multi-provider harnesses).
+// provider → project the selected provider's matching endpoint (+ secret when needed).
 // Adding a harness = one SwitchWriter, not another shell script.
 type SwitchWriter interface {
 	Harness() string
 	Implemented() bool
-	// Apply writes official or third-party projection from a resolved ApplyRequest.
+	// SupportsOfficial reports whether the harness has a first-party provider
+	// path. Pi / OpenCode are multi-provider aggregators and have none.
+	SupportsOfficial() bool
+	// Apply writes official / none / third-party projection from a resolved ApplyRequest.
 	Apply(ctx Context, req ApplyRequest) (msg string, err error)
 	Status(ctx Context) string
 	List(ctx Context) string
@@ -118,7 +125,7 @@ func BuildApplyRequest(ctx Context, harness, rawTarget string, needKey bool) (Ap
 	if err != nil {
 		return ApplyRequest{}, err
 	}
-	if rt.Mode == ModeOfficial {
+	if rt.Mode == ModeOfficial || rt.Mode == ModeClear {
 		return ApplyRequest{Official: true}, nil
 	}
 	ep, err := PreferredEndpoint(rt.Provider, harness)
@@ -155,25 +162,29 @@ func Use(ctx Context, harness, rawTarget string) (string, error) {
 		return "", ErrNotImplemented(w.Harness())
 	}
 	h := NormalizeHarness(harness)
-	needKey := h == HarnessClaude || h == HarnessOpenCode
-	// Codex/Grok/WorkBuddy require key present for third-party but write env_key refs, not plaintext.
-	if h == HarnessCodex || h == HarnessGrok || h == HarnessWorkBuddy {
-		f, err := ctx.File()
-		if err != nil {
-			return "", err
+
+	f, err := ctx.File()
+	if err != nil {
+		return "", err
+	}
+	rt, err := ResolveUseTarget(f, rawTarget)
+	if err != nil {
+		return "", err
+	}
+	if rt.Mode == ModeOfficial && !w.SupportsOfficial() {
+		return "", fmt.Errorf("harness %q has no official provider path (it is multi-provider); use `magic provider use none` to clear the Magic-managed entries", h)
+	}
+
+	// Pi / WorkBuddy / OpenCode / Claude write the real key value (D3).
+	needKey := h == HarnessClaude || h == HarnessOpenCode || h == HarnessPi || h == HarnessWorkBuddy
+	// Codex/Grok keep their native env_key reference but still require the key present.
+	if (h == HarnessCodex || h == HarnessGrok) && rt.Mode == ModeProvider {
+		keyEnv := strings.TrimSpace(rt.Provider.KeyEnv)
+		if keyEnv == "" {
+			keyEnv = rt.Name
 		}
-		rt, err := ResolveUseTarget(f, rawTarget)
-		if err != nil {
+		if _, err := ResolveSecret(ctx.SecretsDir(), keyEnv); err != nil {
 			return "", err
-		}
-		if rt.Mode == ModeProvider {
-			keyEnv := strings.TrimSpace(rt.Provider.KeyEnv)
-			if keyEnv == "" {
-				keyEnv = rt.Name
-			}
-			if _, err := ResolveSecret(ctx.SecretsDir(), keyEnv); err != nil {
-				return "", err
-			}
 		}
 	}
 	req, err := BuildApplyRequest(ctx, harness, rawTarget, needKey)

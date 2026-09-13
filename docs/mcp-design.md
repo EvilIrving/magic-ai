@@ -1,6 +1,6 @@
 # MCP 投影设计（多 harness）
 
-状态：**设计稿（调研完成，未实现）**。调研日期 **2026-09-11**，来源见文末。
+状态：**已实现**（`internal/mcp` + `magic apply` 的 `## mcp projection` + `magic mcp list|status|init`）。决定见 [decisions.md](./decisions.md) D18。
 目标：库里一份 `packs/mcp/mcp.yaml`，按各 harness 格式写进它们的 MCP 配置。
 
 ## 结论
@@ -90,9 +90,10 @@ for harness in enabled ∩ detected:
 ### 合并规则
 
 - 只 upsert Magic 管理的条目；用户自己加的 server **保留**。
-- 需要标记「哪些是 Magic 管的」：用名字前缀 `magic-`（与 provider 一致）或单独记录。
-  **待定**（见开放问题）。
-- 不删除用户条目。
+- Magic 管理的判定（A7 已定）：**不用名字前缀**，而是「名字出现在库 `packs/mcp/mcp.yaml` 里」；
+  库中同名的会 upsert，其它名字一律不动、不删。
+- Codex/Grok 的 TOML 写入不与 `internal/provider` 共用（C10 已定）：`internal/mcp/toml.go` 自己按
+  `[mcp_servers.<name>]` 字段级 upsert，保留用户在该表里的其它键。
 
 ## 不支持 / 特殊情况
 
@@ -116,11 +117,75 @@ MCP 的密钥**就在 MCP 配置里**（`env` / `headers`）——这是 MCP 自
   用户要的是开箱即用，就得是明文真值。与 Pi/WorkBuddy 的模型 key 同一策略。
 - 含密钥的 MCP 文件本地明文；`sync push` 时按密钥文件加密成云端 `.enc`（见 `secrets-and-sync.md`）。
 
-## 未定
+## 已定 / 待定
 
-见 [open-questions.md](./open-questions.md) A7；Codex/Grok 的 TOML 写入复用见 C10。
+**已定**：密钥写明文（D8）、Pi remote 跳过（第三方适配器）、project 级暂不做（D8）、
+管理条目标记 = 库中 server 名（A7/D18）、Codex/Grok TOML 自写（C10/D18）。
 
-密钥写明文、Pi remote MCP（第三方适配器）、project 级暂不做 —— 见 [decisions.md](./decisions.md) D8。
+**未定**：无（MCP 投影已实现）。
+
+## 第二轮调研（2026-09-13）：新增 harness 的 MCP 格式
+
+按 OpenRouter app 用量榜补的格式。✅ = 已实现（`internal/mcp/target.go` + adapter + `translate.go` dialect）。
+
+| harness | 文件 | 顶层键 | 形状 / 备注 | 状态 |
+|---|---|---|---|---|
+| **Cursor** | `~/.cursor/mcp.json` | `mcpServers` | `{command,args,env}`；remote `{url,headers}`（无 `type`） | ✅ |
+| **Antigravity CLI** | `~/.gemini/config/mcp_config.json` | `mcpServers` | remote `{serverUrl,env}`；stdio `{command,args,env}` | ✅ |
+| **Kimi Code** | `~/.kimi-code/mcp.json` | `mcpServers` | stdio `{command,args,env,cwd}`；http `{url}`；sse `{transport:"sse",url}` | ✅ |
+| **Qoder / Qoder CN** | `~/.qoder/settings.json` / `~/.qoder-cn/settings.json` | `mcpServers` | remote `{type:"http"\|"sse"\|"ws",url,headers}` | ✅ |
+| **Cline** | `~/.cline/mcp.json` | `mcpServers` | remote `{type:"streamableHttp"\|"sse",url,headers}` | ✅ |
+| **Kiro** | `~/.kiro/settings/mcp.json`（项目 `.kiro/settings/mcp.json`） | `mcpServers` | stdio/remote 都带 `disabled`；+`autoApprove`/`disabledTools` | ✅ |
+| **Droid (Factory)** | `~/.factory/mcp.json` | `mcpServers` | `{command,args,env}` / `{url,headers}` | ✅ |
+| **ZCode** | `~/.zcode/cli/config.json` | **`mcp.servers`**（嵌套） | stdin/remote；开关字段是 **`enable`**（单数）；`.agents/mcp.json` 为兼容回退 | ✅（支持点号嵌套键） |
+| **Qwen Code** | `~/.qwen/settings.json` | `mcpServers` | Gemini 派生：http→`httpUrl`，sse→`url` | ✅ |
+| **iFlow CLI** | `~/.iflow/settings.json` | `mcpServers` | `{command,args,env}` / `{url,headers}` | ✅ |
+| **Kilo Code** | `~/.config/kilo/kilo.json` | **`mcp`** | OpenCode 形：`{type:"local",command:[...]}` / `{type:"remote",url,headers}` | ✅ |
+| **Zed** | `~/.config/zed/settings.json` | **`context_servers`** | stdio only（无原生 HTTP，需 mcp-remote 桥） | ✅（remote n/a） |
+| **Hermes** | `~/.hermes/config.yaml` | `mcp_servers` | **YAML**；stdio/http/oauth | ✅（YAML writer 已实现） |
+| **Continue** | `~/.continue/config.yaml`（或 `.continue/mcpServers/*.yaml`） | `mcpServers` | **YAML** | ⏳ 需接线（writer 已有） |
+| **Goose** | `~/.config/goose/config.yaml` | `extensions` | **YAML**，且叫 extensions 不叫 mcp | ⏳ 需接线（writer 已有） |
+| **Mistral Vibe** | `config.toml` | **`[[mcp_servers]]`** | TOML **数组表** + `name`/`transport` 字段（与 Codex 的 `[mcp_servers.x]` 不同） | ⏳ 需另一套 TOML 形状 |
+| **OpenClaw** | `~/.openclaw/openclaw.json` | **`mcp.servers`**（嵌套） | **JSON5**（带注释/尾逗号），`transport` | ✅（JSON 路径已接；JSON5 解析加固见待办） |
+| **Crush** | `~/.config/crush/crush.json`（项目 `.crush.json`） | `mcp` | stdio/http/sse | ❓ 键名/路径待实测 |
+| **MiniMax Code** | —（插件管理 UI，非文件） | — | UI 管理 | ➖ 不投影 |
+| **Lingma / 通义灵码** | —（IDE 设置 UI） | — | 即 Qoder CN，UI-only | ➖ 不投影 |
+| **Amp** | —（VS Code 面板） | — | UI 管理 | ➖ 不投影 |
+| **Cortex (CoCo)** | CLI `cortex mcp add` | — | 无手改配置文件 | ➖ 不投影 |
+| **DimAgent / Oh My Pi / DeepSeek Harness / MiMo Code** | 见第三轮 | — | — | ✅ 格式已取到 |
+| **Alma / CraftAgent / Cola** | 见第三轮 | — | — | ❓ / UI-only，见 §5 决策 |
+| **roo / windsurf** | — | — | — | ➖ 不做（D13） |
+
+新增 dialect（`translate.go`）：`kiro`（`disabled`）、`zcode`（`enable` + `type`）、`zed`（stdio only）
+复用：`droid`→cursor 形、`qwen-code`→gemini 形、`iflow-cli`→generic、`kilo`→opencode 形。
+
+> **嵌套顶层键**：`target.TopKey` 支持点号路径（如 `mcp.servers`），JSON 读写都已处理。
+> **YAML / JSON5 / TOML 数组表** 是下一轮三种新 writer；已锁定的三个 JSON 方言已够覆盖当前用量前段。
+
+## 第三轮调研（2026-09-13 排行榜全量）
+
+来源：用户给出的国内用量榜第 2–30 名；逐家取官方文档 / 源码。完整方案见
+[harness-rollout-plan.md](./harness-rollout-plan.md)。
+
+| harness | 文件 | 顶层键 | 形状 | 状态 |
+|---|---|---|---|---|
+| **Oh My Pi (`omp`)** | `~/.omp/agent/mcp.json` | `mcpServers` | Pi 族 + `enabled` + remote `{url,headers}` | ✅ |
+| **Hermes** | `~/.hermes/config.yaml` | `mcp_servers` | **YAML**；stdio `{command,args,env,enabled}`；remote `{url,headers,enabled}` | ✅（新 `FormatYAML`） |
+| **MiMo Code (`mimocode`)** | `~/.config/mimocode/mimocode.json` | `mcp` | OpenCode 方言（fork 自 OpenCode） | ✅（复用 StyleOpenCode） |
+| **DimAgent** | `~/.dim/v2/mcp.json` | `mcpServers` | stdio `{command,args,env,enabled}`；remote `{type:"http",url,headers,enabled}`；**sse→n/a** | ✅（新 `StyleDimAgent`） |
+| **OpenClaw** | `~/.openclaw/openclaw.json` | `mcp.servers`（嵌套） | stdio `{command,args,env,cwd}`；remote `{url,transport,headers}` | ✅（新 `StyleOpenClaw`） |
+| **DeepSeek Harness (`dsh`)** | `~/.dsh/cordis.patch.yml`（插件行） | cordis `insert` 节点 | 经 `@deepseek-ai/dsh-mcp-client` 插件；非扁平配置 | ⏳ P3（见方案 §5） |
+| **Craft Agents** | `~/.craft-agent/workspaces/<id>/sources/*/config.json` | 每源一文件 | 无单一 `mcpServers` 映射 | ❓ 待定 |
+| **MiniMax Code (`mmx`)** | `~/.mmx/config.json` | — | CLI 只存模型/region/凭据；MCP ❓ | ✅ models 层，MCP ➖ |
+
+YAML 写回用 `internal/mcp/yaml.go` 的 `yaml.Node` 级合并：只增改受管 server，保留其它键与注释。
+
+### 更正（第三轮）
+
+- **Kiro**：`~/.kiro/settings/mcp.json`（不是 `~/.kiro/mcp.json`）——现有实现正确。
+- **Droid**：`~/.factory/mcp.json`——现有实现正确。
+- **Cline（CLI）**：`~/.cline/mcp.json`；VS Code 扩展用的是 globalStorage `cline_mcp_settings.json`，两者不同——现有实现用 CLI 路径，正确。
+- **Antigravity**：官方文档为 `~/.gemini/config/mcp_config.json` + 工作区 `.agents/mcp_config.json`——现有实现正确。
 
 ## 调研来源（2026-09-11）
 

@@ -33,27 +33,33 @@ magic adapters      # 看支持哪些 harness
 magic status        # 看库状态 + 本机已装（探测到）的 harness
 ```
 
-`magic adapters` ✅ 输出（Caps 以命令为准；Claude / Pi / Codex / Grok 的 MCP 列是 false ——
-MCP 投影是另一条能力，见 §5）：
+`magic adapters` ✅ 输出（Caps 以命令为准）：
 
 ```
-ID         NAME                  IMPLEMENTED  SKILLS  SUB-AGENT  MCP
-claude     Claude Code           true         true    true    false
-codex      Codex                 true         true    true    false
-grok       Grok                  true         true    true    false
-pi         Pi Agent              true         true    true    false
-opencode   OpenCode              true         true    true    true
-workbuddy  WorkBuddy             true         false   false   false
-gemini     Gemini CLI            true         false   false   true
-copilot    GitHub Copilot CLI    true         true    true    true
-trae       Trae                  true         true    true    true
-mcpuser    MCP User Config       true         false   false   true
+ID               NAME                IMPLEMENTED  SKILLS  SUB-AGENT  MCP   HOOKS
+pi               Pi Agent            true         true    true       true  true
+grok             Grok                true         true    true       true  true
+claude           Claude Code         true         true    true       true  true
+codex            Codex               true         true    true       true  true
+mcpuser          MCP User Config     true         false   false      true  false
+opencode         OpenCode            true         true    true       true  true
+gemini           Gemini CLI          true         false   false      true  true
+copilot          GitHub Copilot CLI  true         true    true       true  true
+workbuddy        WorkBuddy           true         false   false      true  false
+trae             Trae                true         true    true       true  false
+cursor           Cursor              true         true    false      true  true
+antigravity-cli  Antigravity CLI     true         true    false      true  true
+kimi-code        Kimi Code CLI       true         true    true       true  true
+qoder            Qoder               true         true    false      true  true
+qoder-cn         Qoder CN            true         true    false      true  true
+cline            Cline               true         true    false      true  true
 ```
 
-Skills 同步目标另含 **cursor**（无产品 adapter）。**不做 windsurf / roo。**
+`magic adapters --json` 输出同样的字段。**不做 windsurf / roo**（D13）。
+P2（droid/kiro/minimax-code/zcode/hermes/openclaw…）与长尾推迟（D20）；skills 路径已在表里，
+`magic skills sync --target all` 可达。
 
-`magic status` 产品行为（D12）：探测是全量的，输出**只给本机已装的**。未装的不列。
-加 `--all` 才列出全部。🧪（命令已有，目前仍列出全部 adapter，含未装。）
+`magic status` 产品行为（D12）：探测是全量的，输出**只给本机已装的**；未装的不列（可用 `magic adapters` 看全量）。
 
 产品输出长这样：
 
@@ -92,55 +98,58 @@ user home: /Users/you
 
 ## 2. 加一个 provider（核心流程）
 
-### 2a. 你想要的用法 🧪
+### 2a. 交互添加 `magic login` ✅
 
 ```
 magic login deepseek
   API key: ****
   → 拉 https://api.deepseek.com/models
-  → 列出模型让你勾
-  → 写入 providers.yaml + secrets/providers.json
+  → 列出模型让你勾（space 勾选 / a 全选 / enter 确认）
+  → 确认后写 providers.yaml + secrets/providers.json
 ```
 
-终端示意（未实现）：
+终端示意：
 
 ```
 $ magic login deepseek
-Provider: DeepSeek (内置模板: key_env=DEEPSEEK_API_KEY, 3 endpoints)
-Enter DEEPSEEK_API_KEY: ********
-GET https://api.deepseek.com/models ... 200 (2 models)
-? 选择要用的模型 (space 勾选, enter 确认)
-  [x] deepseek-flash
-  [x] deepseek-v4-pro
-写入 providers.yaml: providers.deepseek.pick = [deepseek-flash, deepseek-v4-pro]
-写入密钥库: secrets/providers.json → DEEPSEEK_API_KEY
-提示: 已存在的其它 provider 保持不变
+Provider: deepseek (key_env=DEEPSEEK_API_KEY)
+API key for deepseek
+  > •••••••••
+Models for deepseek (live)
+  3 selected · space toggle · a all · enter confirm · esc cancel
+○ deepseek-chat
+◉ deepseek-flash
+◉ deepseek-v4-pro
+…
+Write to the config library?
+provider : deepseek
+key_env  : DEEPSEEK_API_KEY
+models   : deepseek-flash, deepseek-v4-pro
 ```
 
-非交互（脚本 / CI）同样 🧪：
+回退（`/models` 取不到时，输出会说明用了哪种）：内置模板 `pick` → `registry/models.json` → 手动输入。
+
+非交互（脚本 / CI）：
 
 ```
-magic login deepseek --api-key sk-… --pick deepseek-flash,deepseek-v4-pro
-magic login                      # 不带参数：从内置模板列出 provider 让你选
+magic login deepseek --api-key sk-… --pick deepseek-flash,deepseek-v4-pro --yes
+magic login                       # 不带参数：从内置模板列出 provider 让你选（需 TTY）
+magic login deepseek --no-live    # 跳过 GET /models，直接用回退
 ```
 
-`/models` 取不到时必须说明用了哪种回退（内置模板默认 pick 等）。详见
-[provider-onboarding.md](./provider-onboarding.md)；未定点见 [open-questions.md](./open-questions.md) A3。
+已有同名 provider 时：`key_env` / `endpoints` / `models` 用户优先，`pick` 替换为本次勾选。
+详见 [provider-onboarding.md](./provider-onboarding.md)；决定见 [decisions.md](./decisions.md) D17。
 
 ### 2b. 现在就能用的手动方式 ✅
 
 内置模板有 25 家官方 provider 骨架（`key_env` / endpoints / 默认 pick）。中转不内置，写在用户的 `providers.yaml`。
-**合并进你的 `providers.yaml` 还没接上**（C4）。现在手写，或 `magic provider seed`
-把 seed profiles 里缺的补上：
+用 `magic provider add` 把内置 provider 写进 `providers.yaml`（已存在的不覆盖，用户优先）；
+`magic provider seed` 则把内置 seed profiles 里缺的补上：
 
-```yaml
-# ~/.magic-ai/providers.yaml
-active: deepseek
-providers:
-  deepseek:
-    key_env: DEEPSEEK_API_KEY
-    pick: [deepseek-flash, deepseek-v4-pro]
-    endpoints:
+```bash
+magic provider add --list          # 看内置 provider id
+magic provider add deepseek zai    # 写进 ~/.magic-ai/providers.yaml
+```
       - {id: anthropic,         base_url: https://api.deepseek.com/anthropic, protocol: anthropic-messages}
       - {id: openai-chat,       base_url: https://api.deepseek.com/v1,        protocol: openai-chat-completions}
       - {id: openai-responses,  base_url: https://api.deepseek.com/v1,        protocol: openai-responses}
@@ -231,6 +240,12 @@ project packs/agents/reviewer.md → ~/.claude/agents/reviewer.md
 [claude] providers: upsert /Users/you/.claude/settings.json (provider=shu endpoint=anthropic protocol=anthropic-messages)
 [pi] providers: merge /Users/you/.pi/agent/models.json provider=magic-shu (endpoint=openai-responses protocol=openai-responses api=openai-responses apiKey=sk-…)
 [opencode] providers: OpenCode: provider magic-shu baseURL=https://api.shu.cool/v1 model=magic-shu/gpt-6-astra
+
+## mcp projection
+[claude] mcp: merged 2 server(s) → /Users/you/.claude.json
+[codex] mcp: merged 2 server(s) → /Users/you/.codex/config.toml
+[pi] mcp: n/a linear — Pi remote MCP needs the third-party pi-mcp-adapter
+[pi] mcp: merged 1 server(s) → /Users/you/.pi/agent/mcp.json
 ```
 
 全局 skill 源是 **`$MAGIC_HOME/packs/skills`**，不是 `~/.agents/skills`。
@@ -244,7 +259,8 @@ apply 分两层：
 | harness 定制 | `packs/harness/<id>/` | 只写回该工具 |
 
 写回一律**字段级合并**（D5）：结构化文件按键、一文件一项按项，不整文件覆盖，不删用户自己的键。
-MCP 从 `packs/mcp/mcp.yaml` 投影 🧪（设计见 [mcp-design.md](./mcp-design.md)；apply 命令还没接上）。
+hooks 走 `packs/harness/<id>/hooks/…`（B 方案，字段级合并，D19）。
+MCP 从 `packs/mcp/mcp.yaml` 投影到各 harness 原生格式（D18）——详见 §11。
 
 ### 生成的文件长这样（以 active=shu 为例）
 
@@ -347,14 +363,23 @@ key 用 Codex 原生 `env_key`，不写真值 token。
 `magic provider use` 是 Grok / Codex 的日常入口；apply 末尾投 Claude / Pi / OpenCode / WorkBuddy。
 
 ```bash
-magic provider use shu          # 所有已实现的 harness 切到 shu
+magic provider use shu          # 所有适用的 harness 切到 shu
 magic provider use company      # active 别名（= providers.yaml 的 active）
-magic provider use official     # 切回官方
+magic provider use official     # 切回一方订阅（claude/codex/grok/workbuddy）
 magic provider use official --harness grok
-magic provider status           # 看每个 harness 当前 official 还是哪个 provider
+magic provider use none         # 清掉 Magic 写的条目（Pi / OpenCode 用这个）
+magic provider status           # 看每个 harness 当前是什么
 magic provider test company     # HTTP 打一下 {base}/models，验证 key 通不通
 magic provider seed             # 把内置 seed profiles 合并进 providers.yaml（缺的才加）
+magic provider add deepseek     # 把内置模板 provider 写进 providers.yaml（用户优先）
+magic guide                     # 看一遍上手顺序
 ```
+
+**`official` 只在一方有原生订阅/登录的 harness 上成立**：Claude（Anthropic）、Codex（OpenAI/ChatGPT）、
+Grok（xAI）、WorkBuddy（CodeBuddy 自带模型）。**Pi 与 OpenCode 是多 provider 聚合器，没有单一 official**
+（Pi：`/login` 订阅或 API key + `auth.json`；OpenCode：预加载 75+ provider + `auth.json`，Zen 可选）——
+对这两家用 **`none`**；传 `official` 会报错并提示用 `none`。`none`/`off`/`clear` 对所有 harness 有效。
+（依据各自官方文档，2026-09-13。）
 
 `magic provider use shu --harness grok` ✅ 输出：
 
@@ -374,7 +399,9 @@ Restart Grok for the change to take effect.
 
 ```bash
 magic skills list
-magic skills sync                         # 全局源 → 各 agent 全局 skills 目录（受管链接）
+magic skills sync                         # 全局源 → DefaultAgents（有 adapter 的 8 家）
+magic skills sync --target all            # → vercel-labs/skills 全量 skills 路径表（~70 家）
+magic skills sync --target qoder,kimi-code-cli   # 指定长尾 agent
 magic skills sync --scope project         # 源 = <repo>/.agents/skills
 magic skills sync --scope project --include-global   # 项目为主，再继承全局（同名以项目为准）
 magic skills status                       # 每个 agent：linked / missing / conflict / stale
@@ -388,8 +415,10 @@ magic skills adopt --from AGENT           # 把某 agent 目录里没管的 skil
 行为约定 ✅：**永不删除真实目录**；冲突 = 真目录或非受管链接，报出来不覆盖。
 项目级 skill 用 `magic skills sync --scope project`，**不是** `magic apply`。
 
-当前 skills 目标：`claude, codex, cursor, pi, grok, opencode, copilot, trae`。
-L2 长尾表（vercel-labs/skills）已锁定为产品配置，代码还没接满。
+当前 skills 目标（默认，按用量排序）：`codex, claude, cursor, pi, grok, antigravity-cli, opencode, kimi-code, copilot, workbuddy, trae, qoder, qoder-cn, cline`（均有产品 adapter）。
+L2 长尾表（vercel-labs/skills，~70 家）已锁定为产品配置（`internal/skills/paths.go`）：
+`--target all` 全部覆盖，`--target <id>` 任选；默认不写长尾，避免给未安装工具造空目录。
+（`windsurf` / `roo` 已剔除，D13。）
 
 sub-agent：把 `packs/agents/<name>.md` 放进库，`magic apply` 投到各 Caps.Agents 目录；
 `magic agents` ✅ 列出库里的和每个 adapter 的目标路径。
@@ -452,20 +481,89 @@ apply / `provider use` 会用 `registry/models.json` 给 pick 补 context / cost
 
 ---
 
+## 11. MCP 与 hooks 投影 ✅
+
+### MCP —— `packs/mcp/mcp.yaml` → 各家原生文件
+
+```yaml
+# ~/.magic-ai/packs/mcp/mcp.yaml
+mcp:
+  context7:
+    transport: stdio
+    command: npx
+    args: ["-y", "@upstash/context7-mcp@latest"]
+    env:
+      API_KEY: "sk-…"
+  linear:
+    transport: http
+    url: https://mcp.linear.app/mcp
+    headers:
+      Authorization: "Bearer …"
+```
+
+```bash
+magic mcp init      # 写一份示例（不覆盖已有）
+magic mcp list      # 库里的 server
+magic mcp status    # 各 harness 是否已写入
+magic apply         # 翻译并写进各 harness 原生 MCP 配置
+```
+
+落点（D18）：
+
+| harness | 文件 | 顶层键 | remote |
+|---|---|---|---|
+| claude | `~/.claude.json` | `mcpServers` | `{type:"http"\|"sse",url,headers}` |
+| codex / grok | `*.toml` | `[mcp_servers.*]` | `url`（codex 不支持 sse；grok 可带 `headers`） |
+| opencode | `opencode.json` | `mcp` | `{type:"remote",url,headers}`；local 的 `command` 是数组 |
+| pi | `~/.pi/agent/mcp.json` | `mcpServers` | 不支持（需第三方 adapter）→ `n/a` |
+| gemini | `settings.json` | `mcpServers` | http→`httpUrl`，sse→`url` |
+| copilot | `~/.copilot/mcp-config.json` | `mcpServers` | `{type:"local"\|"http"\|"sse"}` |
+| workbuddy | `~/.codebuddy/settings.json` | `mcpServers` | `{url,headers}` |
+| trae | `~/.trae/mcp.json` | `mcpServers` | `{url,headers}` |
+| mcpuser | `~/.config/mcp/mcp.json` | `mcpServers` | `{url,headers}` |
+| cursor | `~/.cursor/mcp.json` | `mcpServers` | `{url,headers}`（无 type） |
+| antigravity-cli | `~/.gemini/config/mcp_config.json` | `mcpServers` | `{serverUrl,headers}` |
+| kimi-code | `~/.kimi-code/mcp.json` | `mcpServers` | http `{url,headers}`；sse `{transport:"sse",url}` |
+| qoder / qoder-cn | `~/.qoder/settings.json` / `~/.qoder-cn/settings.json` | `mcpServers` | `{type:"http"\|"sse",url,headers}` |
+| cline | `~/.cline/mcp.json` | `mcpServers` | `{type:"streamableHttp"\|"sse",url,headers}` |
+
+规则：密钥写**明文真值**；Magic 管理的条目 = 名字在 `packs/mcp/mcp.yaml` 里的（**无前缀**）；
+用户其它 server **永不删**；不支持就记 `n/a`（如 Pi 的 remote）。
+
+### hooks —— `packs/harness/<id>/hooks/…`
+
+hooks 不做跨家翻译（B 方案，D19）：原样放到 `packs/harness/<id>/` 下，`apply` 按字段级合并写回。
+
+```
+packs/harness/claude/settings.json     # {"hooks":{...}} 合并进 ~/.claude/settings.json 的 hooks
+packs/harness/codex/hooks.json         # 合并进 ~/.codex/hooks.json
+packs/harness/grok/hooks/*.json        # → ~/.grok/hooks/*.json（一文件一项）
+packs/harness/copilot/hooks/*.json     # → ~/.copilot/hooks/*.json
+packs/harness/pi/extensions/*.ts       # 代码式扩展，原样写回
+packs/harness/opencode/plugins/*.ts    # 代码式插件，原样写回
+```
+
+路径值**原样写**（不折 `~`）；Codex hooks 不写 trust 元数据。
+
+---
+
 ## 命令速查（使用视角）
 
 | 我想…… | 命令 | 状态 |
 |---|---|---|
 | 初始化配置库 | `magic init` | ✅ |
 | 看能投哪些工具 | `magic adapters` | ✅ |
-| 看本机已装哪些 | `magic status` | ✅（只列已装 🧪） |
-| 加 provider 并选模型 | `magic login <provider>` | 🧪 |
+| 看本机已装哪些 | `magic status` | ✅（只列已装） |
+| 上手顺序 | `magic guide` | ✅ |
+| 加 provider 并选模型 | `magic login <provider>` | ✅ |
 | 手动加 provider | 编辑 `providers.yaml` + `magic secrets set` | ✅ |
+| 内置 provider 写进库 | `magic provider add` | ✅ |
 | 看库里有啥 | `magic catalog` | ✅ |
 | 把 provider 拷成文本 | `magic copy <provider>` | ✅ |
 | 让各工具生效 | `magic apply` | ✅ |
-| 把 MCP 投进各工具 | `magic apply`（`packs/mcp`） | 🧪 |
-| 收一个外部文件进库 | `magic add path <file>` | 🧪 |
+| 把 MCP / hooks 投进各工具 | `magic apply`（`packs/mcp` / `packs/harness/<id>/hooks`） | ✅ |
+| 看 MCP 投影状态 | `magic mcp list\|status` | ✅ |
+| 收一个外部文件进库 | `magic add path <file>` | ✅ |
 | 切换 official / 中转 | `magic provider use` | ✅ |
 | 验证 key 通不通 | `magic provider test` | ✅ |
 | 同步 skill | `magic skills sync` | ✅ |

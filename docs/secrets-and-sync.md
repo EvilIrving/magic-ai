@@ -86,6 +86,13 @@ magic sync pull:
 - 云端 `.enc` 能防的是：拿到 R2 凭证/对象、但没拿到本机口令的人。
 - 它**不能**防已经控制本机的人（钥匙与数据同机）。
 
-## 实现差距
+## 实现状态
 
-见 [open-questions.md](./open-questions.md) C1 / C2 / C3。产品句子按上面写，不要在其它文档里再跟一句「代码可能还是…」。
+已实现（C1 / C2 / C3 已落代码）：
+
+- 本地 `secrets/providers.json` 明文，无 `.enc`、无 `MAGIC_SECRETS_MODE`。
+- `sync push` 按「路径在 `secrets/` 或内容含真值」加密上传 `<rel>.enc`；`sync pull` 解密落回明文。
+- Pi / WorkBuddy / OpenCode / Claude 投影写真值 key；无 key 则 skip + 日志，不写空值。
+- 已删 adapter `*.json.enc` reinject。
+
+仍开放：A1（口令来源：环境变量 / keychain / 文件）。见 [open-questions.md](./open-questions.md)。

@@ -15,10 +15,11 @@ import (
 // (falls back to ~/.workbuddy/models.json when CodeBuddy dir is absent).
 type WorkBuddyWriter struct{}
 
-func (WorkBuddyWriter) Harness() string      { return HarnessWorkBuddy }
-func (WorkBuddyWriter) Implemented() bool    { return true }
-func (WorkBuddyWriter) BackupPrefix() string { return "models" }
-func (WorkBuddyWriter) BackupExt() string    { return ".json" }
+func (WorkBuddyWriter) Harness() string        { return HarnessWorkBuddy }
+func (WorkBuddyWriter) Implemented() bool      { return true }
+func (WorkBuddyWriter) SupportsOfficial() bool { return true } // CodeBuddy ships built-in models
+func (WorkBuddyWriter) BackupPrefix() string   { return "models" }
+func (WorkBuddyWriter) BackupExt() string      { return ".json" }
 
 func (w WorkBuddyWriter) ConfigPath(userHome string) string {
 	cb := filepath.Join(userHome, ".codebuddy", "models.json")
@@ -139,11 +140,16 @@ func buildWorkBuddyModels(req ApplyRequest, resolve func(pickID string) (modelfi
 			url = base + "/v1/chat/completions"
 		}
 	}
-	keyRef := strings.TrimSpace(req.Provider.KeyEnv)
-	if keyRef == "" {
-		keyRef = req.Name
+	apiKey := strings.TrimSpace(req.APIKey)
+	if apiKey == "" {
+		// Defensive for direct callers (tests): keep an env-style ref so the file
+		// stays valid. `provider use` / `apply` always pass the real key (D3).
+		keyRef := strings.TrimSpace(req.Provider.KeyEnv)
+		if keyRef == "" {
+			keyRef = req.Name
+		}
+		apiKey = "${" + keyRef + "}"
 	}
-	apiKey := "${" + keyRef + "}"
 	vendor := req.Name
 	var out []any
 	for _, pick := range req.Provider.Pick {

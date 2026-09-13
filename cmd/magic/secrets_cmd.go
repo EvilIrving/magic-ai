@@ -65,12 +65,10 @@ Prefer --value (or stdin) so shells do not store the secret in history:
 				return err
 			}
 			dir := core.NewPaths(mh).Secrets
-			// Mode-aware: SetProviderSecret enforces the passphrase only for encrypted.
-			if err := secrets.SetProviderSecret(dir, os.Getenv("MAGIC_PASSPHRASE"), keyEnv, val); err != nil {
+			if err := secrets.SetProviderSecret(dir, keyEnv, val); err != nil {
 				return err
 			}
-			mode := secrets.ResolveSecretMode(dir)
-			fmt.Printf("set %s in %s (mode=%s)\n", keyEnv, secrets.SecretStorePath(dir), mode)
+			fmt.Printf("set %s in %s\n", keyEnv, secrets.ProvidersPath(dir))
 			return nil
 		},
 	}
@@ -85,15 +83,12 @@ func cmdSecretsList() *cobra.Command {
 		Long:  `List key_env names in local plaintext secrets/providers.json. Values are never printed. No passphrase.`,
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pass := os.Getenv("MAGIC_PASSPHRASE")
 			mh, err := resolveMagicHome()
 			if err != nil {
 				return err
 			}
 			dir := core.NewPaths(mh).Secrets
-			// If file missing, Load returns empty; passphrase may be empty.
-			// If file exists, passphrase required (LoadProviderSecrets errors).
-			names, err := secrets.ListProviderSecretNames(dir, pass)
+			names, err := secrets.ListProviderSecretNames(dir)
 			if err != nil {
 				return err
 			}

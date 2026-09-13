@@ -38,12 +38,11 @@ providers:
 	_ = os.WriteFile(filepath.Join(magicHome, "providers.yaml"), []byte(providersYAML), 0o644)
 	secDir := filepath.Join(magicHome, "secrets")
 	_ = os.MkdirAll(secDir, 0o700)
-	pass := "test-passphrase-providers"
-	if err := secrets.SetProviderSecret(secDir, pass, "SHU_API_KEY", "sk-SHU-REAL-KEY99"); err != nil {
+	if err := secrets.SetProviderSecret(secDir, "SHU_API_KEY", "sk-SHU-REAL-KEY99"); err != nil {
 		t.Fatal(err)
 	}
 
-	opts := ApplyOptions{MagicHome: magicHome, UserHome: userHome, Passphrase: pass}
+	opts := ApplyOptions{MagicHome: magicHome, UserHome: userHome}
 	var list []adapter.Adapter
 	list = append(list, claude.New(), pi.New())
 
@@ -88,8 +87,8 @@ providers:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(rawPi), "sk-SHU") {
-		t.Fatalf("pi must use $KEY_ENV not plaintext:\n%s", rawPi)
+	if !strings.Contains(string(rawPi), "sk-SHU-REAL-KEY99") {
+		t.Fatalf("pi must carry the real key (D3):\n%s", rawPi)
 	}
 	var models map[string]any
 	if err := json.Unmarshal(rawPi, &models); err != nil {
@@ -100,7 +99,7 @@ providers:
 		t.Fatal("keep wiped")
 	}
 	magic := provs["magic-shu"].(map[string]any)
-	if magic["apiKey"] != "$SHU_API_KEY" || magic["api"] != "openai-responses" {
+	if magic["apiKey"] != "sk-SHU-REAL-KEY99" || magic["api"] != "openai-responses" {
 		t.Fatalf("%v", magic)
 	}
 }
@@ -110,6 +109,7 @@ func TestApplyProvidersSkipsClaudeWithoutSecret(t *testing.T) {
 	userHome := t.TempDir()
 	_ = os.MkdirAll(filepath.Join(userHome, ".claude"), 0o755)
 	_ = os.WriteFile(filepath.Join(magicHome, "providers.yaml"), []byte(`
+active: shu
 providers:
   shu:
     key_env: SHU_API_KEY

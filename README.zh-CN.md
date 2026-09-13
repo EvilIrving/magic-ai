@@ -26,7 +26,7 @@ Claude Code、Codex、Grok、OpenCode、Pi、Copilot、Trae 各要一份 skill�
 
 密钥在本地是明文 `~/.magic-ai/secrets/providers.json`（0600）。推到云端时，只有含密钥的文件才加密成 `.enc`。
 
-**当前状态：** skill、provider / API 投影、子代理、per-harness 自定义文件已可用。MCP 投影已有设计（[docs/mcp-design.md](./docs/mcp-design.md)），但还没接进 `apply`。
+**当前状态：** skill、provider / API 投影、子代理、per-harness 自定义文件、MCP 投影、hooks 均已可用。
 
 ## 安装
 
@@ -50,10 +50,11 @@ magic apply
 magic skills sync
 ```
 
-然后打开 Claude / Pi / OpenCode，配置已经在里面。切回官方订阅：
+然后打开 Claude / Pi / OpenCode，配置已经在里面。还原：
 
 ```bash
-magic provider use official
+magic provider use official   # 一方订阅（Claude / Codex / Grok / WorkBuddy）
+magic provider use none       # 清掉 Magic 写的条目（Pi / OpenCode：多 provider）
 ```
 
 Grok、Codex 日常切中转用 `magic provider use <名字>`，不是 `apply` 末尾。
@@ -69,12 +70,16 @@ magic skills sync --scope project
 | 命令 | 做什么 |
 |---|---|
 | `magic status` | 配置库状态 + 本机装了哪些 harness |
+| `magic guide` | 打印上手顺序（`--json`） |
 | `magic adapters` | 支持哪些 harness，各自有没有 skill / 子代理 / MCP |
 | `magic apply` | 把库写进各 harness（可 `--dry-run` / `--only pi`） |
 | `magic skills sync` | 全局 skill；项目级加 `--scope project` |
 | `magic skills status` | 每个 harness 的已链接 / 缺失 / 冲突 / 失效（只读） |
 | `magic agents` | 配置库里的子代理，以及哪些 harness 支持 |
-| `magic provider use official\|<名字>` | 在官方订阅和第三方 provider 之间切换某个 harness |
+| `magic mcp list\|status\|init` | 规范 MCP server · 各 harness 是否已写入 · 示例文件 |
+| `magic provider use official\|none\|<名字>` | 在 一方 / 清空 / 第三方 provider 之间切换某个 harness |
+| `magic provider add` | 把内置 provider 写进 `providers.yaml`（`--list` / `--all`） |
+| `magic login <provider>` | 拉 `/models`、交互勾选，写 provider + 密钥 |
 | `magic secrets set\|list` | provider 密钥（`set` 写入 `secrets/providers.json`） |
 | `magic add <path>` | 把某个 harness 本地的文件收进配置库 |
 | `magic catalog` · `magic copy` | 列 `providers.yaml` · 打印单个 provider 配置（密钥取本地明文库） |
@@ -86,7 +91,10 @@ magic skills sync --scope project
 ## 支持的 harness
 
 适配器：`claude`、`codex`、`grok`、`pi`、`opencode`、`workbuddy`（CodeBuddy）、`gemini`、
-`copilot`、`trae`，以及只管 MCP 配置的 `mcpuser`。`cursor` 只是 skill 目标，没有产品适配器。
+`copilot`、`trae`、`cursor`、`antigravity-cli`、`kimi-code`、`qoder`、`qoder-cn`、`cline`、
+`kiro`、`droid`、`zcode`、`qwen-code`、`iflow-cli`、`kilo`、`zed`，
+以及只管 MCP 配置的 `mcpuser`。覆盖范围按用量分档（OpenRouter app 榜，v1 核心；长尾推迟），
+见 [docs/supported-harnesses.md](./docs/supported-harnesses.md)。
 各家路径和能力见 [docs/harness-matrix.md](./docs/harness-matrix.md)。
 
 ## 配置库布局

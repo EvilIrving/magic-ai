@@ -90,7 +90,7 @@ func TestClaudeApplyAndDetect(t *testing.T) {
 	_ = os.MkdirAll(filepath.Join(magic, "secrets"), 0o700)
 	os.Setenv("MAGIC_PASSPHRASE", "test-pass-provider")
 	defer os.Unsetenv("MAGIC_PASSPHRASE")
-	if err := secrets.SetProviderSecret(filepath.Join(magic, "secrets"), "test-pass-provider", "SHU_API_KEY", "sk-test-key-1234"); err != nil {
+	if err := secrets.SetProviderSecret(filepath.Join(magic, "secrets"), "SHU_API_KEY", "sk-test-key-1234"); err != nil {
 		t.Fatal(err)
 	}
 	f := &catalog.File{
@@ -193,12 +193,12 @@ func TestPiMergeAndOfficialClear(t *testing.T) {
 	}
 	ctx := Context{MagicHome: magic, UserHome: home, Catalog: f}
 	w := PiWriter{}
-	req := ApplyRequest{Name: "shu", Provider: f.Providers["shu"], Endpoint: f.Providers["shu"].Endpoints[0]}
+	req := ApplyRequest{Name: "shu", APIKey: "sk-real-pi-key", Provider: f.Providers["shu"], Endpoint: f.Providers["shu"].Endpoints[0]}
 	if _, err := w.Apply(ctx, req); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(w.ConfigPath(home))
-	if !strings.Contains(string(raw), "magic-shu") || !strings.Contains(string(raw), "$SHU_API_KEY") {
+	if !strings.Contains(string(raw), "magic-shu") || !strings.Contains(string(raw), "sk-real-pi-key") {
 		t.Fatalf("%s", raw)
 	}
 	if _, err := w.Apply(ctx, ApplyRequest{Official: true}); err != nil {
@@ -319,7 +319,7 @@ func TestOpenCodeApplyAndOfficialClear(t *testing.T) {
 	}
 }
 
-func TestWorkBuddyApplyWritesEnvKey(t *testing.T) {
+func TestWorkBuddyApplyWritesRealKey(t *testing.T) {
 	tmp := t.TempDir()
 	magic := filepath.Join(tmp, "lib")
 	home := filepath.Join(tmp, "home")
@@ -337,7 +337,8 @@ func TestWorkBuddyApplyWritesEnvKey(t *testing.T) {
 	}
 	ctx := Context{MagicHome: magic, UserHome: home}
 	req := ApplyRequest{
-		Name: "deepseek",
+		Name:   "deepseek",
+		APIKey: "sk-deepseek-real-1234",
 		Provider: catalog.Provider{
 			KeyEnv: "DEEPSEEK_API_KEY",
 			Pick:   []string{"deepseek-v4-pro"},
@@ -352,7 +353,7 @@ func TestWorkBuddyApplyWritesEnvKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(raw)
-	if !strings.Contains(s, "${DEEPSEEK_API_KEY}") || !strings.Contains(s, "chat/completions") {
+	if !strings.Contains(s, "sk-deepseek-real-1234") || !strings.Contains(s, "chat/completions") {
 		t.Fatalf("unexpected models.json:\n%s", s)
 	}
 	if !strings.Contains(s, "user-local") {

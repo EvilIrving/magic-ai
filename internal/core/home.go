@@ -84,6 +84,19 @@ adapters:
     - copilot
     - workbuddy
     - trae
+    - cursor
+    - antigravity-cli
+    - kimi-code
+    - qoder
+    - qoder-cn
+    - cline
+    - kiro
+    - droid
+    - zcode
+    - qwen-code
+    - iflow-cli
+    - kilo
+    - zed
 # Note: "agents" means sub-agents under packs/agents/ — not an adapter id.
 # Skills truth: packs/skills under this dir.
 # Windsurf is not supported (dropped).

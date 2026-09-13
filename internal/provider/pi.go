@@ -11,13 +11,14 @@ import (
 	"magic/internal/modelfile"
 )
 
-// PiWriter projects providers.yaml into ~/.pi/agent/models.json (or clears Magic entry on official).
+// PiWriter projects providers.yaml into ~/.pi/agent/models.json (or clears Magic entries on none).
 type PiWriter struct{}
 
-func (PiWriter) Harness() string      { return HarnessPi }
-func (PiWriter) Implemented() bool    { return true }
-func (PiWriter) BackupPrefix() string { return "models" }
-func (PiWriter) BackupExt() string    { return ".json" }
+func (PiWriter) Harness() string        { return HarnessPi }
+func (PiWriter) Implemented() bool      { return true }
+func (PiWriter) SupportsOfficial() bool { return false } // Pi is a multi-provider aggregator
+func (PiWriter) BackupPrefix() string   { return "models" }
+func (PiWriter) BackupExt() string      { return ".json" }
 func (PiWriter) ConfigPath(userHome string) string {
 	return filepath.Join(userHome, ".pi", "agent", "models.json")
 }
@@ -45,7 +46,7 @@ func (w PiWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
 	} else {
 		pid := catalog.MagicPiProviderID(req.Name)
 		resolve := modelfile.MetaResolver(ctx.MagicHome)
-		entry := catalog.BuildPiProviderEntry(req.Endpoint, req.Provider.KeyEnv, req.Provider.Pick, resolve)
+		entry := catalog.BuildPiProviderEntry(req.Endpoint, req.APIKey, req.Provider.Pick, resolve)
 		out, err = catalog.MergePiModelsJSON(existing, pid, entry)
 		if err != nil {
 			return "", err
@@ -67,12 +68,11 @@ func (w PiWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
 		fmt.Fprintf(&b, "Backup: %s\n", bak)
 	}
 	if req.Official {
-		b.WriteString("Pi: removed Magic-managed providers.* entries (official).\n")
+		b.WriteString("Pi: removed Magic-managed providers.* entries (none — Pi has no first-party provider).\n")
 	} else {
-		fmt.Fprintf(&b, "Pi: merged provider %s (endpoint=%s api=%s apiKey=$%s).\n",
+		fmt.Fprintf(&b, "Pi: merged provider %s (endpoint=%s api=%s apiKey=set).\n",
 			catalog.MagicPiProviderID(req.Name), req.Endpoint.ID,
-			catalog.ProtocolToPiAPI(req.Endpoint.Protocol),
-			strings.TrimPrefix(req.Provider.KeyEnv, "$"))
+			catalog.ProtocolToPiAPI(req.Endpoint.Protocol))
 	}
 	return b.String(), nil
 }
@@ -107,7 +107,7 @@ func (w PiWriter) Status(ctx Context) string {
 func (w PiWriter) List(ctx Context) string {
 	f, _ := ctx.File()
 	var b strings.Builder
-	b.WriteString("  official       clear Magic-managed providers in models.json\n")
+	b.WriteString("  none           clear Magic-managed providers in models.json (Pi has no first-party provider)\n")
 	if f == nil {
 		return b.String()
 	}

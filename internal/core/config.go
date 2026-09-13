@@ -19,7 +19,7 @@ func LoadMagicConfig(path string) (*MagicConfig, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			c := &MagicConfig{Version: "1.0"}
-			c.Adapters.Enabled = []string{"pi", "grok", "claude", "codex", "mcpuser", "opencode", "gemini", "copilot", "workbuddy", "trae"}
+			c.Adapters.Enabled = []string{"pi", "grok", "claude", "codex", "mcpuser", "opencode", "gemini", "copilot", "workbuddy", "trae", "cursor", "antigravity-cli", "kimi-code", "qoder", "qoder-cn", "cline", "kiro", "droid", "zcode", "qwen-code", "iflow-cli", "kilo", "zed"}
 			return c, nil
 		}
 		return nil, err

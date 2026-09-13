@@ -30,10 +30,11 @@ func GrokModePath(userHome string) string {
 // GrokWriter projects library provider → Grok managed model catalog (or official default).
 type GrokWriter struct{}
 
-func (GrokWriter) Harness() string      { return HarnessGrok }
-func (GrokWriter) Implemented() bool    { return true }
-func (GrokWriter) BackupPrefix() string { return "config" }
-func (GrokWriter) BackupExt() string    { return ".toml" }
+func (GrokWriter) Harness() string        { return HarnessGrok }
+func (GrokWriter) Implemented() bool      { return true }
+func (GrokWriter) SupportsOfficial() bool { return true }
+func (GrokWriter) BackupPrefix() string   { return "config" }
+func (GrokWriter) BackupExt() string      { return ".toml" }
 func (GrokWriter) ConfigPath(userHome string) string {
 	return GrokConfigPath(userHome)
 }

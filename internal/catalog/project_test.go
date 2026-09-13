@@ -71,9 +71,9 @@ func TestUpsertClaudeSettingsPreservesUnrelated(t *testing.T) {
 func TestMergePiModelsSmoke(t *testing.T) {
 	existing := []byte(`{"providers":{"keep-me":{"baseUrl":"https://x","api":"openai-completions","apiKey":"$X","models":[]}}}`)
 	ep := Endpoint{ID: "openai-responses", BaseURL: "https://api.shu.cool/v1", Protocol: ProtocolOpenAIResponses}
-	entry := BuildPiProviderEntry(ep, "SHU_API_KEY", []string{"gpt-5.6-sol"}, nil)
-	if entry.APIKey != "$SHU_API_KEY" {
-		t.Fatalf("apiKey must be env ref, got %q", entry.APIKey)
+	entry := BuildPiProviderEntry(ep, "sk-real-pi-key", []string{"gpt-5.6-sol"}, nil)
+	if entry.APIKey != "sk-real-pi-key" {
+		t.Fatalf("apiKey must be the real value, got %q", entry.APIKey)
 	}
 	if entry.API != "openai-responses" {
 		t.Fatalf("api=%s", entry.API)
@@ -97,8 +97,8 @@ func TestMergePiModelsSmoke(t *testing.T) {
 	if magic["baseUrl"] != "https://api.shu.cool/v1" {
 		t.Fatalf("%v", magic)
 	}
-	if magic["apiKey"] != "$SHU_API_KEY" {
-		t.Fatalf("plaintext leaked? %v", magic["apiKey"])
+	if magic["apiKey"] != "sk-real-pi-key" {
+		t.Fatalf("pi must carry the real key (D3), got %v", magic["apiKey"])
 	}
 
 	home := t.TempDir()
@@ -107,7 +107,7 @@ func TestMergePiModelsSmoke(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(path)
-	if strings.Contains(string(raw), "sk-") {
-		t.Fatalf("must not write plaintext keys: %s", raw)
+	if !strings.Contains(string(raw), "sk-real-pi-key") {
+		t.Fatalf("plaintext key missing: %s", raw)
 	}
 }

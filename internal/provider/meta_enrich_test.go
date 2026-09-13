@@ -167,7 +167,7 @@ func TestCodexApplyWritesAndOfficialRemovesCatalog(t *testing.T) {
 	_ = os.MkdirAll(filepath.Join(magic, "secrets"), 0o700)
 	os.Setenv("MAGIC_PASSPHRASE", "test-pass-codex-catalog")
 	defer os.Unsetenv("MAGIC_PASSPHRASE")
-	if err := secrets.SetProviderSecret(filepath.Join(magic, "secrets"), "test-pass-codex-catalog", "SHU_API_KEY", "sk-test-key"); err != nil {
+	if err := secrets.SetProviderSecret(filepath.Join(magic, "secrets"), "SHU_API_KEY", "sk-test-key"); err != nil {
 		t.Fatal(err)
 	}
 	high := "high"
@@ -248,7 +248,7 @@ func TestClaudeThirdPartyWritesAuthTokenAndExtras(t *testing.T) {
 	_ = os.MkdirAll(filepath.Join(magic, "secrets"), 0o700)
 	os.Setenv("MAGIC_PASSPHRASE", "test-pass-claude-extras")
 	defer os.Unsetenv("MAGIC_PASSPHRASE")
-	if err := secrets.SetProviderSecret(filepath.Join(magic, "secrets"), "test-pass-claude-extras", "DEEPSEEK_API_KEY", "sk-ds-key"); err != nil {
+	if err := secrets.SetProviderSecret(filepath.Join(magic, "secrets"), "DEEPSEEK_API_KEY", "sk-ds-key"); err != nil {
 		t.Fatal(err)
 	}
 	max := "max"

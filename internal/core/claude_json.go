@@ -4,13 +4,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-
-	"magic/internal/secrets"
 )
 
 // applyClaudePartial merges the per-harness Claude custom partial
 // (packs/harness/claude/claude.json.partial.json) into ~/.claude.json.
-// Secret placeholders are reinjected from secrets/claude.json.enc.
+// The library copy is the final content (no placeholder reinjection).
 func applyClaudePartial(opts ApplyOptions, backupDir string) ([]string, error) {
 	var log []string
 	src := filepath.Join(opts.MagicHome, "packs", "harness", "claude", "claude.json.partial.json")
@@ -20,10 +18,6 @@ func applyClaudePartial(opts ApplyOptions, backupDir string) ([]string, error) {
 			return log, nil
 		}
 		return log, err
-	}
-	pass := applyPassphrase(opts)
-	if secMap, secErr := secrets.LoadSecrets(filepath.Join(opts.MagicHome, "secrets"), "claude", pass); secErr == nil && len(secMap) > 0 {
-		data = secrets.ReinjectBytes(data, secMap)
 	}
 	var partial map[string]any
 	if err := json.Unmarshal(data, &partial); err != nil {

@@ -1,3 +1,9 @@
+// Package mcpuser is the MCP-config mirror (~/.config/mcp/mcp.json), not a harness.
+//
+// Source: internal | docs/mcp-design.md (generic MCP consumer) | verified
+//
+// mcpuser is deliberately NOT a model provider: no SwitchWriter, and it must
+// not grow a stub pretending to be one (AGENTS.md -> 继续 registry 工作时 #6).
 package mcpuser
 
 import (

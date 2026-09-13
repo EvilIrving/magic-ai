@@ -10,6 +10,7 @@ import (
 	"magic/internal/catalog"
 	"magic/internal/core"
 	"magic/internal/provider"
+	"magic/internal/provider/builtin"
 	"magic/internal/secrets"
 )
 
@@ -41,6 +42,7 @@ Dialect writers (SwitchWriter): Claude, Codex, Grok, Pi, OpenCode, WorkBuddy imp
 	c.AddCommand(cmdProviderTest())
 	c.AddCommand(cmdProviderBackup())
 	c.AddCommand(cmdProviderSeed())
+	c.AddCommand(cmdProviderAdd())
 	return c
 }
 
@@ -147,9 +149,19 @@ func cmdProviderStatus() *cobra.Command {
 
 func cmdProviderUse() *cobra.Command {
 	return &cobra.Command{
-		Use:   "use <official|company|providerName>",
-		Short: "Switch harness to official or a providers.yaml provider (company=active)",
-		Args:  cobra.ExactArgs(1),
+		Use:   "use <providerName|company|official|none>",
+		Short: "Switch harness to a provider, official (first-party), or none (clear Magic entries)",
+		Long: `Switch a harness between a providers.yaml provider, its first-party path
+(official), or none (clear Magic-managed entries).
+
+  magic provider use deepseek --harness claude   # project provider deepseek
+  magic provider use company   --harness claude   # = providers.yaml active
+  magic provider use official  --harness claude   # first-party login path
+  magic provider use none      --harness pi       # clear Magic entries (multi-provider)
+
+Pi and OpenCode are multi-provider aggregators with no single first-party path,
+so 'official' is not available there — use 'none'.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := providerCtx(cmd)
 			if err != nil {
@@ -159,10 +171,15 @@ func cmdProviderUse() *cobra.Command {
 			h := harnessFlag(cmd)
 			target := args[0]
 			if h == "" {
-				// apply to all implemented writers
+				// apply to all implemented writers; skip official where not applicable
+				official := provider.IsOfficialAlias(target)
 				var failed bool
 				for _, w := range provider.Writers() {
 					if !w.Implemented() {
+						continue
+					}
+					if official && !w.SupportsOfficial() {
+						fmt.Printf("## %s\n[%s] n/a: no first-party provider path (multi-provider) — use `magic provider use none`\n", w.Harness(), w.Harness())
 						continue
 					}
 					msg, err := provider.Use(ctx, w.Harness(), target)
@@ -373,4 +390,78 @@ func cmdProviderSeed() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func cmdProviderAdd() *cobra.Command {
+	var all bool
+	var listOnly bool
+	c := &cobra.Command{
+		Use:   "add [provider-id...]",
+		Short: "Add builtin template providers into providers.yaml",
+		Long: `Copy builtin provider templates (name / key_env / endpoints[] / pick) into the
+user providers.yaml. Providers already present are left untouched (user wins).
+
+  magic provider add --list
+  magic provider add deepseek zai
+  magic provider add --all
+
+After adding, set the key: magic secrets set <KEY_ENV> --value …`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			names, err := builtin.Names()
+			if err != nil {
+				return err
+			}
+			if listOnly {
+				fmt.Println("builtin providers:")
+				for _, n := range names {
+					fmt.Printf("  %s\n", n)
+				}
+				return nil
+			}
+			if len(args) == 0 && !all {
+				return fmt.Errorf("specify provider ids or --all (see magic provider add --list)")
+			}
+			if all {
+				args = names
+			}
+			mh, err := resolveMagicHome()
+			if err != nil {
+				return err
+			}
+			path := core.NewPaths(mh).ProvidersYAML
+			user, err := catalog.Load(path)
+			if err != nil {
+				return err
+			}
+			next, added, skipped, missing, err := builtin.AddSelection(user, args)
+			if err != nil {
+				return err
+			}
+			if len(added) > 0 {
+				if err := catalog.Save(path, next); err != nil {
+					return err
+				}
+			}
+			if len(added) == 0 {
+				fmt.Println("nothing added")
+			} else {
+				fmt.Printf("added: %s\n", strings.Join(added, ", "))
+			}
+			if len(skipped) > 0 {
+				fmt.Printf("kept existing (user wins): %s\n", strings.Join(skipped, ", "))
+			}
+			for _, n := range added {
+				if k := next.Providers[n].KeyEnv; k != "" {
+					fmt.Printf("  next: magic secrets set %s --value …\n", k)
+				}
+			}
+			if len(missing) > 0 {
+				return fmt.Errorf("unknown provider id(s): %s", strings.Join(missing, ", "))
+			}
+			return nil
+		},
+	}
+	c.Flags().BoolVar(&all, "all", false, "add every builtin provider")
+	c.Flags().BoolVar(&listOnly, "list", false, "list builtin provider ids")
+	return c
 }

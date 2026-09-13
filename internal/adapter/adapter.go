@@ -8,6 +8,7 @@ type Caps struct {
 	Skills bool
 	Agents bool // sub-agent defs (packs/agents), NOT a harness named "agents"
 	MCP    bool
+	Hooks  bool // per-harness hooks files under packs/harness/<id>/hooks/
 	Models bool
 	Themes bool
 }

@@ -15,26 +15,31 @@ exists so a new machine can reach a working provider set without hand-writing
 | is not | the user's live config (`~/.magic-ai/providers.yaml`) |
 | is not | model metadata (that is `$MAGIC_HOME/registry/models.json`) |
 
-## Merge semantics (planned)
+## Merge semantics
 
-The onboarding flow that consumes this template — `magic login <provider>` (fetch the
-provider's live `/models`, let the user pick) — is specified in
-[`docs/provider-onboarding.md`](../../../docs/provider-onboarding.md). Not implemented yet.
-
+Implemented in `builtin.Merge` / `builtin.MergeProvider` / `builtin.AddSelection`.
 Merge happens in memory; nothing is written unless the user runs a command.
 
 ```
-effective = merge(template, user_providers.yaml)
+effective = merge(template, user_providers.yaml)   // in-memory, user wins
 ```
 
+- `provider.LoadCatalog` returns the merged file, so `magic provider list` / `use`
+  / `copy` see template providers as readable defaults.
+- `magic provider add <id>` copies the named template providers into the user
+  `providers.yaml` (`AddSelection`); a provider already present is kept as-is.
 - Provider only in template → available as a default for `magic provider add <id>`.
 - Provider in both → user wins:
-  - scalar fields (`key_env`, `name`) — user value replaces template value
+  - scalar fields (`key_env`, `name`, `note`) — user value replaces template value
   - `endpoints[]` — if the user defines any, they replace the template list **whole**
-    (no per-endpoint merging; avoids half-merged protocol sets)
+    (no per-endpoint merging; avoids half-merged protocol sets). A legacy top-level
+    `base_url` + `protocol` clears template endpoints so it is synthesized instead.
   - `pick` — same rule: user list replaces template list whole
   - `models` — merged per role key, user wins per role
 - Template never injects itself into `providers.yaml` silently.
+
+The live `/models` onboarding flow (`magic login <provider>`) is still design-only:
+see [`docs/provider-onboarding.md`](../../../docs/provider-onboarding.md).
 
 ## Schema
 
@@ -55,7 +60,7 @@ Mirrors `internal/catalog.Provider` plus two additive, tooling-only fields:
 
 ## Coverage
 
-25 official providers, two groups. Relays and gateways are **not** shipped
+30 official providers, three groups. Relays and gateways are **not** shipped
 here — they belong in the user's `providers.yaml`.
 
 1. **国内官方** — `zai`, `zai-coding-cn`, `deepseek`,
@@ -64,11 +69,14 @@ here — they belong in the user's `providers.yaml`.
 2. **海外官方** — `anthropic`, `openai`, `xai`, `cerebras`,
    `openrouter`, `fireworks`, `nvidia`, `huggingface`, `baseten`,
    `ant-ling`, `vercel-ai-gateway`.
+3. **OpenAI 兼容补充（2026-09-13，按模型用量榜）** — `google` (Gemini OpenAI-compat),
+   `mistral`, `meta` (Llama API), `upstage`, `hunyuan` (Tencent).
 
 Deliberately absent until Magic grows the matching dialect or per-account
-resolution: `google`/`google-vertex` (Generative AI), `mistral`
-(Conversations), `amazon-bedrock` (Converse), `github-copilot` and
-`cloudflare-ai-gateway` (per-account base URL), `opencode` Zen (router-chosen).
+resolution: `google-vertex`/native Generative AI (Gemini is shipped via the
+OpenAI-compatible endpoint), native Mistral Conversations, `amazon-bedrock`
+(Converse), `github-copilot` and `cloudflare-ai-gateway` (per-account base URL),
+`opencode` Zen (router-chosen).
 
 ## Sources
 
@@ -102,5 +110,7 @@ for push/pull and never enters the library.
 
 - Values are never printed by `list`/`status`; only key names.
 - `copy` resolves `key_env` (fallback: provider name); never reads process env.
-- A provider whose `key_env` has no stored value still projects placeholders
-  instead of failing apply.
+- A provider whose `key_env` has no stored value is **skipped** for Pi / Claude
+  projection with a `skip — secret … missing` log line; it is never written with an
+  empty key. (`buildWorkBuddyModels` keeps an env-style fallback only for direct
+  writer calls; `provider use` / apply always pass the real key.)

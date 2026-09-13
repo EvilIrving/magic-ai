@@ -1,3 +1,12 @@
+// Package workbuddy is the Magic adapter for CodeBuddy / WorkBuddy (Tencent).
+//
+// Source: vendor-doc | codebuddy.ai/docs/cli/mcp | checked 2026-09-13 | stale?
+//   (that page lists .codebuddy/mcp.json and .codebuddy/.mcp.json;
+//   docs/harness-profiles.md §10 records settings.json -> mcpServers)
+//
+// One product, two names, shared ~/.codebuddy root; ~/.workbuddy is probed for
+// presence only. Resolve the MCP-file conflict above on a real install before
+// editing the workbuddy row in internal/mcp/target.go.
 package workbuddy
 
 import (
@@ -18,7 +27,7 @@ func (a *Adapter) Name() string        { return "WorkBuddy" }
 func (a *Adapter) Platforms() []string { return []string{"any"} }
 func (a *Adapter) Implemented() bool   { return true }
 func (a *Adapter) Caps() adapter.Caps {
-	return adapter.Caps{Models: true}
+	return adapter.Caps{Models: true, MCP: true}
 }
 
 func codebuddyRoot(home string) string { return filepath.Join(home, ".codebuddy") }

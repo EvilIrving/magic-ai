@@ -393,6 +393,56 @@ providers:
         base_url: https://ai-gateway.vercel.sh/v1
         protocol: openai-chat-completions
 
+  # ---------------------------------------------------------------------
+  # Overseas official — OpenAI-compatible entries (added 2026-09-13 from the
+  # OpenRouter model-usage board). Native dialects (Gemini generateContent,
+  # Mistral Conversations) are still not projected by Magic.
+  # ---------------------------------------------------------------------
+
+  google:
+    name: Google Gemini
+    key_env: GEMINI_API_KEY
+    note: Gemini OpenAI-compatible endpoint; native generateContent dialect is not projected yet.
+    endpoints:
+      - id: openai-chat
+        base_url: https://generativelanguage.googleapis.com/v1beta/openai
+        protocol: openai-chat-completions
+
+  mistral:
+    name: Mistral AI
+    key_env: MISTRAL_API_KEY
+    note: Mistral OpenAI-compatible endpoint; native Conversations dialect is not projected yet.
+    endpoints:
+      - id: openai-chat
+        base_url: https://api.mistral.ai/v1
+        protocol: openai-chat-completions
+
+  meta:
+    name: Meta Llama API
+    key_env: META_API_KEY
+    note: Meta Model / Llama API OpenAI-compatible endpoint.
+    endpoints:
+      - id: openai-chat
+        base_url: https://api.llama.com/compat/v1
+        protocol: openai-chat-completions
+
+  upstage:
+    name: Upstage Solar
+    key_env: UPSTAGE_API_KEY
+    endpoints:
+      - id: openai-chat
+        base_url: https://api.upstage.ai/v1/solar
+        protocol: openai-chat-completions
+
+  hunyuan:
+    name: Tencent Hunyuan
+    key_env: HUNYUAN_API_KEY
+    note: Tencent Hunyuan OpenAI-compatible endpoint.
+    endpoints:
+      - id: openai-chat
+        base_url: https://hunyuan.cloud.tencent.com/openai/v1
+        protocol: openai-chat-completions
+
 # -----------------------------------------------------------------------------
 # Not statically addressable (need per-account values) — deliberately omitted:
 #   github-copilot     base is per-plan (api.individual.githubcopilot.com) and
@@ -400,8 +450,10 @@ providers:
 #   cloudflare-ai-gateway  base is
 #                      https://gateway.ai.cloudflare.com/v1/<account>/<gateway>
 #   opencode (Zen)     base is chosen by the Zen router at request time
-#   google / google-vertex  Google Generative AI dialect — Magic has no
-#                      Gemini projector yet; add when the dialect lands
-#   mistral            Mistral Conversations dialect — same
+#   google / google-vertex  Native Generative AI dialect (generateContent) is
+#                      not projected; Gemini is shipped as `google` via the
+#                      OpenAI-compatible endpoint
+#   mistral            Native Conversations dialect is not projected; shipped
+#                      via the OpenAI-compatible endpoint
 #   amazon-bedrock     Bedrock Converse dialect — same
 # -----------------------------------------------------------------------------

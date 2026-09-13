@@ -8,27 +8,20 @@ import (
 
 	"magic/internal/adapter"
 	"magic/internal/agents"
-	"magic/internal/secrets"
 	"magic/internal/skills"
 )
 
 // ApplyOptions controls apply.
 type ApplyOptions struct {
-	MagicHome  string
-	UserHome   string
-	DryRun     bool
-	Only       string
-	Passphrase string
+	MagicHome string
+	UserHome  string
+	DryRun    bool
+	Only      string
 }
 
-func applyPassphrase(opts ApplyOptions) string {
-	if opts.Passphrase != "" {
-		return opts.Passphrase
-	}
-	return os.Getenv("MAGIC_PASSPHRASE")
-}
-
-// ApplyAdapter restores mirrored tree for one adapter, reinjecting secrets.
+// ApplyAdapter restores the mirrored custom tree for one adapter.
+// Structured config files are field-level merged (decisions.md D5); the local
+// library copy is the final content (no secret placeholder reinjection).
 func ApplyAdapter(a adapter.Adapter, opts ApplyOptions, backupDir string) ([]string, error) {
 	var log []string
 	if !a.Implemented() {
@@ -43,15 +36,6 @@ func ApplyAdapter(a adapter.Adapter, opts ApplyOptions, backupDir string) ([]str
 	if err != nil || !st.IsDir() {
 		log = append(log, fmt.Sprintf("[%s] no library mirror at %s", a.ID(), srcRoot))
 		return log, nil
-	}
-
-	pass := applyPassphrase(opts)
-	secMap, secErr := secrets.LoadSecrets(filepath.Join(opts.MagicHome, "secrets"), string(a.ID()), pass)
-	if secErr != nil && pass != "" {
-		return log, fmt.Errorf("[%s] load secrets: %w", a.ID(), secErr)
-	}
-	if secErr != nil && pass == "" {
-		log = append(log, fmt.Sprintf("[%s] warning: encrypted secrets present but MAGIC_PASSPHRASE unset — placeholders left as-is", a.ID()))
 	}
 
 	err = filepath.WalkDir(srcRoot, func(path string, d fs.DirEntry, err error) error {
@@ -76,17 +60,11 @@ func ApplyAdapter(a adapter.Adapter, opts ApplyOptions, backupDir string) ([]str
 			if err != nil {
 				return err
 			}
-			reinjected := false
-			if len(secMap) > 0 {
-				next := secrets.ReinjectBytes(data, secMap)
-				reinjected = string(next) != string(data)
-				data = next
-			}
 			mode := os.FileMode(0o644)
-			if reinjected || secretBearingName(rel) {
+			if secretBearingName(rel) {
 				mode = 0o600
 			}
-			if err := AtomicWriteFile(dst, data, mode); err != nil {
+			if err := mergeLibraryFile(dst, rel, data, mode); err != nil {
 				return err
 			}
 		}

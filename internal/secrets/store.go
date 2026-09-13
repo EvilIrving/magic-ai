@@ -1,19 +1,9 @@
 package secrets
 
-import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-)
-
-// PlaceholderPrefix marks reinjectable secret slots in per-harness custom files.
-// apply replaces `${MAGIC_SECRET:<path>}` with the value from secrets/<adapter>.json.enc.
-const PlaceholderPrefix = "${MAGIC_SECRET:"
-const PlaceholderSuffix = "}"
+import "strings"
 
 // StripJSONC removes // and /* */ comments outside of strings.
+// Used when reading jsonc harness configs (e.g. opencode.jsonc).
 func StripJSONC(data []byte) []byte {
 	s := string(data)
 	var b strings.Builder
@@ -62,42 +52,4 @@ func StripJSONC(data []byte) []byte {
 		b.WriteByte(c)
 	}
 	return []byte(b.String())
-}
-
-// LoadSecrets decrypts secrets/<adapterID>.json.enc.
-// Missing file → nil, nil. Present file with unset passphrase → error.
-func LoadSecrets(secretsDir, adapterID, passphrase string) (map[string]string, error) {
-	path := filepath.Join(secretsDir, adapterID+".json.enc")
-	blob, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	if passphrase == "" {
-		return nil, fmt.Errorf("secrets file present but MAGIC_PASSPHRASE unset")
-	}
-	pt, err := Decrypt(blob, passphrase)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]string{}
-	if err := json.Unmarshal(pt, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// ReinjectBytes replaces `${MAGIC_SECRET:<path>}` placeholders with values.
-func ReinjectBytes(data []byte, secrets map[string]string) []byte {
-	if len(secrets) == 0 {
-		return data
-	}
-	s := string(data)
-	for k, v := range secrets {
-		ph := PlaceholderPrefix + k + PlaceholderSuffix
-		s = strings.ReplaceAll(s, ph, v)
-	}
-	return []byte(s)
 }

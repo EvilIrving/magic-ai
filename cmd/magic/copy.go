@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"magic/internal/catalog"
 	"magic/internal/core"
+	"magic/internal/provider"
 	"magic/internal/secrets"
 )
 
@@ -51,8 +51,9 @@ Examples:
 				return err
 			}
 			name := args[0]
-			paths := core.NewPaths(mh)
-			f, err := catalog.Load(paths.ProvidersYAML)
+			// Effective catalog = builtin template overlaid by the user file, so a
+			// builtin provider can be copied without adding it first.
+			f, err := provider.LoadCatalog(mh)
 			if err != nil {
 				return err
 			}
@@ -64,7 +65,7 @@ Examples:
 			if err != nil {
 				return err
 			}
-			apiKey, err := resolveCopyAPIKey(paths.Secrets, name, p)
+			apiKey, err := resolveCopyAPIKey(core.NewPaths(mh).Secrets, name, p)
 			if err != nil {
 				return err
 			}
@@ -80,8 +81,7 @@ Examples:
 
 // resolveCopyAPIKey loads provider secrets and looks up key_env, then provider name.
 func resolveCopyAPIKey(secretsDir, providerName string, p catalog.Provider) (string, error) {
-	pass := os.Getenv("MAGIC_PASSPHRASE")
-	m, err := secrets.LoadProviderSecrets(secretsDir, pass)
+	m, err := secrets.LoadProviderSecrets(secretsDir)
 	if err != nil {
 		return "", err
 	}

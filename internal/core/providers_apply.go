@@ -18,7 +18,8 @@ import (
 func ApplyProviders(adapters []adapter.Adapter, opts ApplyOptions) ([]string, error) {
 	var log []string
 	paths := NewPaths(opts.MagicHome)
-	f, err := catalog.Load(paths.ProvidersYAML)
+	// Effective catalog = builtin template overlaid by the user file (user wins).
+	f, err := provider.LoadCatalog(opts.MagicHome)
 	if err != nil {
 		return nil, err
 	}
@@ -27,10 +28,8 @@ func ApplyProviders(adapters []adapter.Adapter, opts ApplyOptions) ([]string, er
 		return log, nil
 	}
 
-	pass := applyPassphrase(opts)
-	secMap, secErr := secrets.LoadProviderSecrets(paths.Secrets, pass)
+	secMap, secErr := secrets.LoadProviderSecrets(paths.Secrets)
 	if secErr != nil {
-		// Missing passphrase when enc present — continue for Pi ($KEY_ENV) but Claude needs plaintext.
 		log = append(log, fmt.Sprintf("[providers] warning: %v", secErr))
 		secMap = map[string]string{}
 	}
@@ -61,7 +60,7 @@ func ApplyProviders(adapters []adapter.Adapter, opts ApplyOptions) ([]string, er
 				log = append(log, "[pi] providers: skip (not detected)")
 				continue
 			}
-			extra, err := applyPiProvider(f, hint, opts)
+			extra, err := applyPiProvider(f, hint, secMap, opts)
 			if err != nil {
 				return log, err
 			}
@@ -125,16 +124,25 @@ func applyClaudeProvider(f *catalog.File, hint string, secMap map[string]string,
 	return log, nil
 }
 
-func applyPiProvider(f *catalog.File, hint string, opts ApplyOptions) ([]string, error) {
+func applyPiProvider(f *catalog.File, hint string, secMap map[string]string, opts ApplyOptions) ([]string, error) {
 	var log []string
 	name, p, ep, ok, msg := catalog.ResolveProviderForProtocols(f, hint, catalog.PiOpenAIProtocolPreference...)
 	if !ok {
 		log = append(log, fmt.Sprintf("[pi] providers: skip — %s", msg))
 		return log, nil
 	}
+	apiKey := resolveProviderSecret(p, name, secMap)
+	if apiKey == "" {
+		keyPh := p.KeyEnv
+		if keyPh == "" {
+			keyPh = name
+		}
+		log = append(log, fmt.Sprintf("[pi] providers: skip — secret for %s missing (set with magic secrets set %s --value …)", name, keyPh))
+		return log, nil
+	}
 	pid := catalog.MagicPiProviderID(name)
 	resolve := modelfile.MetaResolver(opts.MagicHome)
-	entry := catalog.BuildPiProviderEntry(ep, p.KeyEnv, p.Pick, resolve)
+	entry := catalog.BuildPiProviderEntry(ep, apiKey, p.Pick, resolve)
 	path, err := catalog.WritePiModels(opts.UserHome, pid, entry, opts.DryRun)
 	if err != nil {
 		return log, fmt.Errorf("[pi] providers: %w", err)
@@ -151,7 +159,7 @@ func applyPiProvider(f *catalog.File, hint string, opts ApplyOptions) ([]string,
 	if opts.DryRun {
 		action = "would merge"
 	}
-	log = append(log, fmt.Sprintf("[pi] providers: %s %s provider=%s (endpoint=%s protocol=%s api=%s apiKey=%s)", action, path, pid, ep.ID, ep.Protocol, entry.API, entry.APIKey))
+	log = append(log, fmt.Sprintf("[pi] providers: %s %s provider=%s (endpoint=%s protocol=%s api=%s apiKey=set)", action, path, pid, ep.ID, ep.Protocol, entry.API))
 	return log, nil
 }
 

@@ -26,7 +26,7 @@ Magic does not install those tools and does not replace them. It only writes int
 
 Keys are plaintext locally in `~/.magic-ai/secrets/providers.json` (0600). On cloud push, only the files that contain secrets are encrypted (`.enc`).
 
-**Status:** skills, provider/API projection, sub-agents and per-tool files work today. MCP projection is designed ([docs/mcp-design.md](./docs/mcp-design.md)) but is not wired into `apply` yet.
+**Status:** skills, provider/API projection, sub-agents, per-tool files, MCP projection and hooks all work today.
 
 ## Install
 
@@ -50,10 +50,11 @@ magic apply
 magic skills sync
 ```
 
-Open Claude, Pi or OpenCode: the config is already there. To go back to an official subscription:
+Open Claude, Pi or OpenCode: the config is already there. To revert:
 
 ```bash
-magic provider use official
+magic provider use official   # first-party subscription (Claude / Codex / Grok / WorkBuddy)
+magic provider use none       # clear the Magic-written entries (Pi / OpenCode — multi-provider)
 ```
 
 Grok and Codex switch providers with `magic provider use <name>`, not at the end of `apply`.
@@ -69,12 +70,16 @@ magic skills sync --scope project
 | Command | What it does |
 |---|---|
 | `magic status` | library state + which harnesses are installed here |
+| `magic guide` | print the getting-started sequence (`--json`) |
 | `magic adapters` | supported harnesses and their skills / sub-agent / MCP capabilities |
 | `magic apply` | write the library into each harness (`--dry-run`, `--only pi`) |
 | `magic skills sync` | global skills; add `--scope project` for a repo |
 | `magic skills status` | per-harness linked / missing / conflict / stale (read-only) |
 | `magic agents` | sub-agents in the library, and which harnesses support them |
-| `magic provider use official\|<name>` | switch a harness between official and a third-party provider |
+| `magic mcp list\|status\|init` | canonical MCP servers · per-harness presence · example file |
+| `magic provider use official\|none\|<name>` | switch a harness between first-party, cleared, and a third-party provider |
+| `magic provider add` | copy a builtin provider into `providers.yaml` (`--list`, `--all`) |
+| `magic login <provider>` | fetch `/models`, pick interactively, write provider + key |
 | `magic secrets set\|list` | provider keys (`set` writes `secrets/providers.json`) |
 | `magic add <path>` | copy a harness-local file into the library |
 | `magic catalog` · `magic copy` | list `providers.yaml` · print one provider config (key from local secrets) |
@@ -87,8 +92,11 @@ magic skills sync --scope project
 ## Supported harnesses
 
 Adapters: `claude`, `codex`, `grok`, `pi`, `opencode`, `workbuddy` (CodeBuddy), `gemini`,
-`copilot`, `trae`, plus `mcpuser` for MCP config files. `cursor` is a skills target only.
-Paths and capabilities per harness: [docs/harness-matrix.md](./docs/harness-matrix.md).
+`copilot`, `trae`, `cursor`, `antigravity-cli`, `kimi-code`, `qoder`, `qoder-cn`, `cline`,
+`kiro`, `droid`, `zcode`, `qwen-code`, `iflow-cli`, `kilo`, `zed`, plus `mcpuser` for MCP config
+files. Coverage is usage-driven (v1 core per OpenRouter app ranking; long tail deferred).
+Paths and capabilities per harness: [docs/harness-matrix.md](./docs/harness-matrix.md)
+and [docs/supported-harnesses.md](./docs/supported-harnesses.md).
 
 ## Library layout
 

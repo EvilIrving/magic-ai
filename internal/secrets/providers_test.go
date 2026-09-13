@@ -7,73 +7,19 @@ import (
 )
 
 func TestProviderSecretsRoundTrip(t *testing.T) {
-	t.Setenv("MAGIC_SECRETS_MODE", "")
 	dir := t.TempDir()
-	const pass = "test-passphrase"
 	const keyEnv = "DEEPSEEK_API_KEY"
 	const val = "sk-TEST-PROVIDER-KEY99"
 
-	m, err := LoadProviderSecrets(dir, pass)
+	m, err := LoadProviderSecrets(dir)
 	if err != nil || len(m) != 0 {
 		t.Fatalf("missing → empty: m=%v err=%v", m, err)
 	}
 
-	if err := SetProviderSecret(dir, pass, keyEnv, val); err != nil {
+	if err := SetProviderSecret(dir, keyEnv, val); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(dir, ProvidersFileName)
-	if _, err := os.Stat(path); err != nil {
-		t.Fatal(err)
-	}
-
-	got, ok, err := GetProviderSecret(dir, pass, keyEnv)
-	if err != nil || !ok || got != val {
-		t.Fatalf("got %q ok=%v err=%v", got, ok, err)
-	}
-
-	// merge second key
-	if err := SetProviderSecret(dir, pass, "OPENROUTER_API_KEY", "sk-or-xxx"); err != nil {
-		t.Fatal(err)
-	}
-	names, err := ListProviderSecretNames(dir, pass)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(names) != 2 || names[0] != "DEEPSEEK_API_KEY" || names[1] != "OPENROUTER_API_KEY" {
-		t.Fatalf("names=%v", names)
-	}
-
-	// wrong passphrase
-	_, err = LoadProviderSecrets(dir, "wrong")
-	if err == nil {
-		t.Fatal("expected decrypt error")
-	}
-
-	// passphrase unset while file exists
-	_, err = LoadProviderSecrets(dir, "")
-	if err == nil {
-		t.Fatal("expected passphrase error")
-	}
-
-	// empty passphrase rejected on set
-	if err := SetProviderSecret(dir, "", "X", "y"); err == nil {
-		t.Fatal("expected passphrase required")
-	}
-}
-
-func TestProviderSecretsPlaintextMode(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("MAGIC_SECRETS_MODE", "plaintext")
-	const keyEnv = "FOO_API_KEY"
-	const val = "sk-plain-text-123"
-
-	if err := SetProviderSecret(dir, "", keyEnv, val); err != nil {
-		t.Fatalf("plaintext set without passphrase: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, ProvidersFileName)); err == nil {
-		t.Fatal("encrypted file must not exist in plaintext mode")
-	}
-	path := filepath.Join(dir, ProvidersPlaintextFileName)
+	path := ProvidersPath(dir)
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
@@ -81,48 +27,56 @@ func TestProviderSecretsPlaintextMode(t *testing.T) {
 	if perm := info.Mode().Perm(); perm != 0o600 {
 		t.Fatalf("perm=%v, want 0600", perm)
 	}
-	got, ok, err := GetProviderSecret(dir, "", keyEnv)
+	if filepath.Base(path) != ProvidersFileName || ProvidersFileName != "providers.json" {
+		t.Fatalf("local store must be plaintext providers.json, got %s", ProvidersFileName)
+	}
+
+	got, ok, err := GetProviderSecret(dir, keyEnv)
 	if err != nil || !ok || got != val {
 		t.Fatalf("got %q ok=%v err=%v", got, ok, err)
 	}
-	if ResolveSecretMode(dir) != SecretModePlaintext {
-		t.Fatalf("mode=%v", ResolveSecretMode(dir))
+
+	// merge second key
+	if err := SetProviderSecret(dir, "OPENROUTER_API_KEY", "sk-or-xxx"); err != nil {
+		t.Fatal(err)
 	}
-	if SecretStorePath(dir) != path {
-		t.Fatalf("store path=%q", SecretStorePath(dir))
+	names, err := ListProviderSecretNames(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 2 || names[0] != "DEEPSEEK_API_KEY" || names[1] != "OPENROUTER_API_KEY" {
+		t.Fatalf("names=%v", names)
+	}
+
+	// empty key_env rejected
+	if err := SetProviderSecret(dir, "", "y"); err == nil {
+		t.Fatal("expected empty key_env to fail")
 	}
 }
 
-func TestProviderSecretsAutoDetectPlaintext(t *testing.T) {
+func TestProviderSecretsFileIsPlainJSON(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("MAGIC_SECRETS_MODE", "")
-	if err := os.WriteFile(filepath.Join(dir, ProvidersPlaintextFileName), []byte(`{"FOO_API_KEY":"bar"}`), 0o600); err != nil {
+	if err := SetProviderSecret(dir, "FOO_API_KEY", "sk-plain-text-123"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	raw, err := os.ReadFile(ProvidersPath(dir))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if ResolveSecretMode(dir) != SecretModePlaintext {
-		t.Fatalf("auto-detect should pick plaintext, got %v", ResolveSecretMode(dir))
+	want := "{\n  \"FOO_API_KEY\": \"sk-plain-text-123\"\n}"
+	if string(raw) != want {
+		t.Fatalf("local file must be plaintext JSON:\ngot  %s\nwant %s", raw, want)
 	}
-	v, ok, err := GetProviderSecret(dir, "", "FOO_API_KEY")
-	if err != nil || !ok || v != "bar" {
-		t.Fatalf("got %q ok=%v err=%v", v, ok, err)
+	// No hidden encrypted companion is written.
+	if _, err := os.Stat(filepath.Join(dir, "providers.json.enc")); err == nil {
+		t.Fatal("local .enc must not exist")
 	}
 }
 
-func TestProviderSecretsEncryptedWinsOverPlaintext(t *testing.T) {
+func TestProviderSecretsMissingKey(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("MAGIC_SECRETS_MODE", "")
-	const pass = "pw"
-	if err := SetProviderSecret(dir, pass, "A_API_KEY", "1"); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, ProvidersPlaintextFileName), []byte(`{"A_API_KEY":"DECOY"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if ResolveSecretMode(dir) != SecretModeEncrypted {
-		t.Fatalf("encrypted should win, got %v", ResolveSecretMode(dir))
-	}
-	v, _, err := GetProviderSecret(dir, pass, "A_API_KEY")
-	if err != nil || v != "1" {
-		t.Fatalf("got %q err=%v", v, err)
+	_, ok, err := GetProviderSecret(dir, "NOPE_API_KEY")
+	if err != nil || ok {
+		t.Fatalf("missing key: ok=%v err=%v", ok, err)
 	}
 }

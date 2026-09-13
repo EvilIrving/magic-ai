@@ -31,7 +31,7 @@ type skillsFlags struct {
 func (f *skillsFlags) bindCommon(c *cobra.Command) {
 	c.Flags().StringVar(&f.scope, "scope", "global", "global|project|all")
 	c.Flags().StringVar(&f.project, "project", "", "project root (git root or cwd if omitted)")
-	c.Flags().StringArrayVar(&f.targets, "target", nil, "agent: claude,codex,cursor,pi,grok,opencode,copilot,trae (repeatable or comma list)")
+	c.Flags().StringArrayVar(&f.targets, "target", nil, "agent id or 'all' (repeatable/comma list); 'all' covers the full skills path table")
 	c.Flags().BoolVar(&f.includeGlobal, "include-global", false, "project scope also inherits $MAGIC_HOME/packs/skills")
 	c.Flags().BoolVarP(&f.dryRun, "dry-run", "n", false, "print actions without modifying files")
 	c.Flags().BoolVarP(&f.force, "force", "f", false, "replace conflicting symlinks (never real dirs)")

@@ -1,6 +1,6 @@
 # Apply 设计：共有的原数据 + 各 harness 定制
 
-状态：**设计稿**。描述目标行为与逻辑，不代表代码已实现。代码部分只给结构/伪代码。
+状态：**主要行为已实现**。providers / skills / sub-agents 的投影、`packs/harness/<id>/` 定制写回、字段级合并、`magic add path` 都已落代码。**未实现**：MCP 投影（见 `mcp-design.md`）、provider 三态/冲突检测。
 
 ## 目标（一句话）
 

@@ -5,6 +5,81 @@
 > Pi / WorkBuddy / OpenCode / Claude 投影写真值 key。见 `docs/decisions.md` D2/D3、`docs/secrets-and-sync.md`。
 > 下面旧条目里的 `providers.json.enc` / `MAGIC_PASSPHRASE` for copy 是当时实现，不是现行产品。
 
+## 排行榜全量调研 + 第三批 adapter (2026-09-13)
+
+- 用户榜单第 2–30 名逐家调研（官方文档 + 源码），产出 `docs/harness-rollout-plan.md`（含两轮自审、能力矩阵、实施批次）。
+- 新增 adapter：`omp`（Oh My Pi，`~/.omp/agent`）、`hermes`（`~/.hermes/config.yaml`）、`mimocode`（MiMo Code，`~/.config/mimocode`）、`dimagent`（`~/.dim/v2`）、`openclaw`（`~/.openclaw`）。
+- MCP：新增 `FormatYAML`（`internal/mcp/yaml.go`，`yaml.Node` 级合并保留注释/其它键）+ 4 个 dialect：`omp`、`hermes`、`dimagent`（sse→n/a）、`openclaw`（嵌套 `mcp.servers`）。
+- `DefaultAgents` 增 `omp/hermes/mimocode/openclaw`；skills 表增 `omp`/`oh-my-pi`。
+- 决定 D21–D25：Roo Code 停运不做；Alma/MiniMax-MCP/Lingma UI-only；DSH MCP 暂缓；Cola 身份待确认。
+- 修复工作区里 `internal/provider/switch_test.go` 的编译错误（`&catalogFileForTest(t)` → `catalogFileForTest(t)`，untracked WIP 笔误）。
+- 测试：`internal/mcp` 新 dialect + YAML/嵌套键用例；`go test ./...` 全绿；临时 HOME 下 `magic apply` 端到端验证 5 个新 target。
+
+## provider switch 语义修正：official vs none (2026-09-13)
+
+- 读官方文档后修正（Pi https://pi.dev/docs/latest/providers，OpenCode /docs/providers + models.dev）。
+- `SwitchWriter` 新增 `SupportsOfficial() bool`：claude/codex/grok/workbuddy = true；**pi/opencode = false**（多 provider 聚合器）。
+- 新目标 `none`（别名 off/clear）→ 对所有 harness 都表示「清掉 Magic 写进配置的条目」。
+  `provider use official --harness pi|opencode` 报错并提示用 `none`；无 `--harness` 时对这两家记 `n/a` 而非失败。
+- 顺便核实 OpenCode 字段：官方 JSON Schema 确认 `provider.<id>.{npm,name,whitelist,blacklist,options.{apiKey,baseURL,timeout},models}` 均合法（之前的 `whitelist` 写法没问题）。
+- 决定 D21；AGENTS/usage/README/decisions 已同步。测试：`internal/provider/switch_test.go`。
+
+## Provider 补齐 + MCP 第二轮调研/实现 (2026-09-13)
+
+- 内置模板 `providers.yaml` +5：`google`(Gemini OpenAI 兼容)、`mistral`、`meta`(Llama API)、`upstage`、`hunyuan`(腾讯)，按模型用量榜补。
+- MCP 新增 7 个 adapter + target：kiro、droid、zcode(嵌套 `mcp.servers`)、qwen-code、iflow-cli、kilo、zed。
+- 新 dialect：kiro(`disabled`)、zcode(`enable`)、zed(stdio only)；target.TopKey 支持点号嵌套键（读写/检查均已）。
+- 调研文档：`docs/mcp-design.md` 新增「第二轮调研（2026-09-13）」，列出全部 harness 的 MCP 格式 + 状态。
+  未实现（需新 writer）：Hermes/Continue/Goose（YAML）、Mistral Vibe（TOML 数组表）、OpenClaw（JSON5）、Crush（待实测）、MiniMax/Lingma/Amp/Cortex（UI/CLI only）。
+- 测试：`internal/registry`（P1+调研批次）、`internal/mcp`（新 dialect/target/嵌套键）；`go test ./...` 全绿。
+
+## 用量驱动的 v1 覆盖：P1 补齐 (2026-09-13)
+
+- 依据 OpenRouter app 榜（2026-09）定 v1 范围（D20，修订 D9 的「全做」）。
+- 新增 adapter：`cursor`（升为完整，含 MCP/hooks）、`antigravity-cli`、`kimi-code`、`qoder`、`qoder-cn`、`cline`（+ `internal/adapters/*`，注册到 `registry`、写入 `magic.yaml` 默认 enabled）。
+- MCP `translate.go` 新增 dialect：cursor / antigravity(`serverUrl`) / kimi(`transport:sse`) / qoder / cline(`streamableHttp`)；`target.go` 落点从 10 → 16。
+- `DefaultAgents` 改为按用量排序的 14 家；skills 路径表增 `kimi-code` 别名。
+- P2（droid/kiro/minimax-code/zcode/hermes/openclaw/deepseek-harness/oh-my-pi/dimagent/alma/craftagent/cola）与长尾~50 家**推迟**；skill 路径已在表、`--target all` 可达。
+- 测试：`internal/mcp` 新 dialect + target，`internal/registry` v1 core 完整性；`go test ./...` 13 包全绿。
+
+## L2 skills 长尾表接入 (2026-09-13)
+
+- `internal/skills/paths.go`：新增 `globalSkills` 表（vercel-labs/skills 全量，~74 家）、`KnownAgent` / `AllAgents`；`GlobalTargetDir` 改为查表；`AgentDotDir`（project）扩到产品集。
+- `--target all` → `AllAgents()`；默认仍 8 家（避免给未安装工具造目录）。`windsurf`/`roo` 剔除（D13）。
+- 测试：`internal/skills/paths_test.go`。
+
+## MCP + hooks 投影落地 (2026-09-13)
+
+- 新增 `internal/mcp`：规范形 `packs/mcp/mcp.yaml` → 各 harness 原生格式（JSON + TOML）。
+  `translate.go`（claude/codex/grok/opencode/pi/gemini/copilot/workbuddy/trae/generic）、
+  `toml.go`（`[mcp_servers.<name>]` 字段级 upsert）、`target.go`（10 个 harness 落点）、
+  `apply.go`（merge，保留用户条目）、`inspect.go`。
+- `magic apply` 新增 `## mcp projection`；新增 `magic mcp list|status|init`。
+- `adapter.Caps` 新增 `Hooks`；claude/codex/grok/pi/workbuddy 等补上 `MCP:true`；`magic adapters` 加 HOOKS 列。
+- hooks 按 B 方案（D19）：`packs/harness/<id>/hooks/…` 字段级合并（`merge.go` 白名单加 `hooks.json`/`mcp.json`/`mcp-config.json`）。
+- 决定 D18（MCP：无前缀、按库名字管理、明文密钥） / D19（hooks：B 方案、路径不折 `~`、不写 trust）。A5–A8 已定，C10 已定。
+- 测试：`internal/mcp` 翻译/TOML/投影合并；`go test ./...` 13 包全绿。
+
+## `magic login` 落地（Bubble Tea TUI）(2026-09-13)
+
+- 新增 `internal/provider/modelfetch.go`：`ModelsURLFor` / `FetchModels` / `ParseModelsResponse`（OpenAI `data[]`、Anthropic `display_name`、裸数组/字符串；去重排序）。
+- 新增 `internal/login`：`LookupProvider` / `Resolve`（三级回退 live → 内置 pick → `registry/models.json` → 手动；`DefaultSelection`）/ `Apply`（用户优先合并，`pick` 替换）/ Bubble Tea TUI（masked key 输入、单选/多选、确认）。
+- 新增 `cmd/magic/login.go`：`magic login [provider] [--api-key] [--pick] [--yes] [--no-live]`；非 TTY 强制 `--pick` + `--yes`，TTY 检测用 `go-isatty`。
+- 依赖：`charmbracelet/bubbletea` + `bubbles` + `lipgloss`。
+- 决定 D17（TUI 库、确认后写、回退顺序、不写 `models_meta`）；A3 已定。
+- 测试：`internal/login`（13 个，含 fake `/models` httptest、TUI model 直接驱动）、`internal/provider` 解析。`go test ./...` 全绿。
+
+## C 表落地：D2/D3/D5 实现跟上 (2026-09-13)
+
+- **C1** `internal/secrets` 改为本地恒 `secrets/providers.json` 明文 0600；删 `MAGIC_SECRETS_MODE` / 双模式 / 本地 `.enc`。`sync push` 按「路径在 `secrets/` 或内容含真值」加密后上传 `<rel>.enc`；`sync pull` 解密 `.enc` 落回明文、无 `.enc`。口令仅 push/pull 需要。
+- **C2** Pi / WorkBuddy 写**真值** apiKey（`catalog.BuildPiProviderEntry` 收真值；`provider.Use` 对 pi/workbuddy 也 needKey）。无 key 则 skip + 日志，不写空值。
+- **C3** 删 adapter 级 `secrets/<id>.json.enc` reinject（`LoadSecrets` / `ReinjectBytes` / `${MAGIC_SECRET:}`）；apply 的 harness 定制文件本地即最终内容。
+- **C7** `core/merge.go`：apply 写回结构化文件字段级合并（JSON deep merge / TOML section upsert，`[[array]]` 整段替换）；AGENTS.md 等整份覆盖；一文件一项自然不删其它项。
+- **C4** `provider/builtin` 增 `Merge` / `MergeProvider` / `AddSelection`；`provider.LoadCatalog` 读取时叠加内置模板（用户优先）；新增 `magic provider add [ids…|--all|--list]`。
+- **C8** `magic status` 只列已安装 harness（D12）。
+- **C9** 新增 `magic guide`、`status --json`、`adapters --json`。桌面端 / 签名发行仍不在库内。
+- 测试：`go test ./...` 全绿；新增 merge / builtin / sync / secrets 单测。
+
 ## 口径统一 (2026-09-13)
 
 - D2：本地明文 `secrets/providers.json`；`.enc` 只表示云端对象（push 加密上传、pull 解密落回明文）。

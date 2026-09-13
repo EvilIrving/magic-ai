@@ -1,7 +1,6 @@
 # Provider 接入：登录 → 拉模型 → 挑选（规划中）
 
-状态：**设计稿 / 未实现**。本文件只描述目标，不代表代码已存在。实现前不得在
-`AGENTS.md`、README、命令帮助里把它写成已完成能力。
+状态：**已实现**（`internal/login` Bubble Tea TUI + `internal/provider/modelfetch.go` + `cmd/magic/login.go`）。决定见 [decisions.md](./decisions.md) D16 / D17。
 
 ## 要解决的问题
 
@@ -69,12 +68,14 @@ Anthropic 形状有 `display_name`，可作展示名。
 按内置模板 README 的合并语义处理 —— 用户已有字段优先，`pick` 与 `endpoints` 是
 整段替换还是合并，实现前需要定死（见「待定」）。
 
-## 命令面（提案，未定）
+## 命令面（已实现）
 
 ```
-magic login <provider>              # 用内置模板找到 provider，提示 key，拉模型，勾选
-magic login <provider> --api-key …  # 非交互：key 从参数来，模型仍交互或用 --pick
-magic login                         # 无参数：从内置模板列出 provider 让用户选
+magic login <provider>              # 内置模板找到 provider，提示/复用 key，拉模型，勾选，确认写库
+magic login                          # 无参数：从内置模板列出 provider 让用户选（需 TTY）
+magic login <provider> --api-key …  # key 从参数来
+magic login <provider> --api-key … --pick a,b --yes   # 完全脚本化（无需 TTY）
+magic login <provider> --no-live    # 跳过 GET /models，直接走回退
 ```
 
 与现有命令的关系：
@@ -96,17 +97,18 @@ magic login                         # 无参数：从内置模板列出 provider
 
 - 内置 provider 模板：`internal/provider/builtin/providers.yaml`（25 家官方；中转不内置）、
   `builtin.Load/Providers/Names`。
-- `internal/provider/test_http.go` 的 `/models` 可达性探测（不解析 body）。
+- `internal/provider/test_http.go` 的 `/models` 可达性探测。
+- `internal/provider/modelfetch.go`：`FetchModels` + `ParseModelsResponse`（OpenAI/Anthropic/裸数组）。
+- `internal/login`：`LookupProvider` / `Resolve`（三级回退 + `DefaultSelection`）/ `Apply`（用户优先合并）/ 确认；Bubble Tea TUI（key 输入、多选、单选、确认）。
+- `magic login [provider]`：`--api-key` / `--pick` / `--yes` / `--no-live`。
 
-**规划中（本文件）**
+**未做**
 
-- `LoginFlow`：拿 key → 拉模型 → 交互勾选 → 写 `providers.yaml` + secrets。
-- `/models` 响应解析 + 三级回退。
-- `magic login` 命令与**交互 TUI**。
-- 合并语义的最终定义（字段级合并）。
+- 写 `models_meta`（D17 明确不做）。
+- 多协议按 endpoint 分 pick（pick 是 provider 级，D17）。
 
 ## 已定 / 待定
 
-**已定**（见 [decisions.md](./decisions.md) D4/D16）：`magic login` = **TUI 交互流程**；无迁移入口；密钥本地明文。
+**已定**（见 [decisions.md](./decisions.md) D4/D16/D17）：`magic login` = **TUI 交互流程**（Bubble Tea）；无迁移入口；密钥本地明文；确认后写库；回退顺序 live → 内置 pick → registry → 手动；不写 `models_meta`。
 
-**待定**：见 [open-questions.md](./open-questions.md) A3（TUI 库、写库粒度、无 `/models` 回退、多协议分 endpoint、`models_meta`）。
+**待定**：A1（sync 口令来源：环境变量 / keychain / 文件）；MCP / hooks 投影整体设计（见 `mcp-design.md` / `hooks-design.md`）。
