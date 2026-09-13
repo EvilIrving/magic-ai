@@ -1,6 +1,6 @@
 # Magic 入门
 
-Magic 是 **一份配置、投到多个 AI coding harness** 的 Go CLI。你只维护本地 **配置库**（默认 `~/.magic-ai`）：skills、MCP、API / 模型。`apply` 把这份内容写进 Claude / Codex / Grok / Pi / OpenCode 等已经在用的配置文件。新开一个工具不必复制粘贴。
+Magic（仓库 [magic-ai](https://github.com/EvilIrving/magic-ai)）是给 **Claude Code、Codex、Cursor、Grok、OpenCode、Pi** 用的 Go CLI：一份本地配置库同步 **skills、MCP、中转 API**。你只维护 `~/.magic-ai`。`apply` 按各工具自己的格式写进已有配置，不必每个 Agent 再复制粘贴。
 
 多机备份的是这份配置库（R2 或 git 私有库），不是 `~/.pi` / `~/.grok` 家目录。
 
@@ -20,10 +20,11 @@ Magic 是 **一份配置、投到多个 AI coding harness** 的 Go CLI。你只�
 ## 安装（源码）
 
 ```bash
-git clone <this-repo> && cd go-magic
+git clone https://github.com/EvilIrving/magic-ai.git
+cd magic-ai
 go test ./...
 go build -o magic ./cmd/magic
-./magic version   # 1.0.0
+./magic version
 ```
 
 把 `magic` 放进 `PATH`，或在仓库里用 `./magic`。

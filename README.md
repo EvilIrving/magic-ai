@@ -1,14 +1,19 @@
 # Magic
 
-**1.0.0** — 一份配置，投到多个 AI coding harness。
+**One local config for Claude Code, Codex, Cursor, Grok, OpenCode, and Pi.**
 
+一份配置库同步 **skills、MCP、中转 API / 模型** 到多个 AI coding 工具。`apply` 按各工具自己的格式写入 `~/.claude`、`~/.codex`、`~/.grok`、`~/.pi`、`~/.config/opencode` 等已有文件。新开一个 harness 不必再复制粘贴 skill 和 API key。
+
+仓库：**[github.com/EvilIrving/magic-ai](https://github.com/EvilIrving/magic-ai)** · CLI：`magic` · 配置库：`~/.magic-ai`
+
+搜这些词能对上：Claude Code skills、Codex MCP、Cursor skills sync、Grok CLI provider、OpenCode API key、Pi models.json、Anthropic 中转、DeepSeek、一份配置多个 Agent。
+
+- **怎么用：** [docs/usage.md](./docs/usage.md)
+- **入门：** [docs/getting-started.md](./docs/getting-started.md)
 - **文档目录：** [docs/README.md](./docs/README.md)
-- **产品使用定义（先读这个）：** [docs/usage.md](./docs/usage.md) —— 每条命令做什么、吐什么、生成的文件长什么样
-- **对外入门：** [docs/getting-started.md](./docs/getting-started.md)
-- **对内约定：** [AGENTS.md](./AGENTS.md)
 - **Harness 矩阵：** [docs/harness-matrix.md](./docs/harness-matrix.md)
 
-真相源是 **`~/.magic-ai`**（`MAGIC_HOME`；别名 `MAGIC_VAULT`）。产品概念简单：只维护这一份 skill / MCP / 中转 API，`apply` 按各 harness **自己的格式**写进已经在用的文件。新开 OpenCode / Grok 不必复制粘贴。Pi 的 theme、`AGENTS.md` 这类自定义随库跨机，只还回同一个工具。
+真相源是 **`~/.magic-ai`**（`MAGIC_HOME`）。只维护这一份 skill / MCP / API；各工具的 theme、`AGENTS.md` 放 `packs/harness/<id>/`，跨机只还回同一个工具。
 
 手改配置库 / `skills` / `catalog` / `secrets` 是进库的**手段**，不是产品本身。官方登录 / access token / OAuth **不进库**。多机备份的是这份配置库（R2 / git），不是 `~/.pi` 家目录。不做整机备份，不安装软件。布局见 [docs/library-layout.md](./docs/library-layout.md)。
 
@@ -55,10 +60,11 @@ magic skills sync --scope project --include-global
 ## 构建
 
 ```bash
-cd go-magic
+git clone https://github.com/EvilIrving/magic-ai.git
+cd magic-ai
 go test ./...
 go build -o magic ./cmd/magic
-./magic version   # → 1.0.0
+./magic version
 ```
 
 ## 初始化
