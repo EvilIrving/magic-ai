@@ -16,17 +16,17 @@ type Provider struct {
 
 // Model is one models.dev model entry (fields Magic cares about).
 type Model struct {
-	ID               string             `json:"id,omitempty"`
-	Name             string             `json:"name,omitempty"`
-	ToolCall         *bool              `json:"tool_call,omitempty"`
-	StructuredOutput *bool              `json:"structured_output,omitempty"`
-	Reasoning        bool               `json:"reasoning,omitempty"`
-	ReasoningOptions []ReasoningOption  `json:"reasoning_options,omitempty"`
-	Status           string             `json:"status,omitempty"`
-	Attachment       bool               `json:"attachment,omitempty"`
-	Limit            *Limit             `json:"limit,omitempty"`
-	Cost             *Cost              `json:"cost,omitempty"`
-	Modalities       *Modalities        `json:"modalities,omitempty"`
+	ID               string            `json:"id,omitempty"`
+	Name             string            `json:"name,omitempty"`
+	ToolCall         *bool             `json:"tool_call,omitempty"`
+	StructuredOutput *bool             `json:"structured_output,omitempty"`
+	Reasoning        bool              `json:"reasoning,omitempty"`
+	ReasoningOptions []ReasoningOption `json:"reasoning_options,omitempty"`
+	Status           string            `json:"status,omitempty"`
+	Attachment       bool              `json:"attachment,omitempty"`
+	Limit            *Limit            `json:"limit,omitempty"`
+	Cost             *Cost             `json:"cost,omitempty"`
+	Modalities       *Modalities       `json:"modalities,omitempty"`
 }
 
 // ReasoningOption mirrors models.dev reasoning_options entries.

@@ -13,7 +13,7 @@ import (
 type Context struct {
 	MagicHome string
 	UserHome  string
-	HTTP      *http.Client // nil → DefaultClient (tests inject httptest)
+	HTTP      *http.Client  // nil → DefaultClient (tests inject httptest)
 	Catalog   *catalog.File // optional preloaded; else LoadCatalog(MagicHome)
 }
 

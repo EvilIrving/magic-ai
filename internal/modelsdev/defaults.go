@@ -16,25 +16,25 @@ type ProviderDefaults struct {
 
 // KnownProviders is the Magic-sized hardcoded map (not Pi's full quirk matrix).
 var KnownProviders = map[string]ProviderDefaults{
-	"openai":           {API: "openai-responses", BaseURL: "https://api.openai.com/v1"},
-	"anthropic":        {API: "anthropic-messages", BaseURL: "https://api.anthropic.com"},
-	"deepseek":         {API: "openai-completions", BaseURL: "https://api.deepseek.com"},
-	"xai":              {API: "openai-responses", BaseURL: "https://api.x.ai/v1"},
-	"groq":             {API: "openai-completions", BaseURL: "https://api.groq.com/openai/v1"},
-	"openrouter":       {API: "openai-completions", BaseURL: "https://openrouter.ai/api/v1"},
-	"moonshotai":       {API: "openai-completions", BaseURL: "https://api.moonshot.ai/v1"},
-	"moonshotai-cn":    {API: "openai-completions", BaseURL: "https://api.moonshot.cn/v1"},
-	"cerebras":         {API: "openai-completions", BaseURL: "https://api.cerebras.ai/v1"},
-	"mistral":          {API: "openai-completions", BaseURL: "https://api.mistral.ai"},
-	"minimax":          {API: "anthropic-messages", BaseURL: "https://api.minimax.io/anthropic"},
-	"minimax-cn":       {API: "anthropic-messages", BaseURL: "https://api.minimaxi.com/anthropic"},
-	"together":         {API: "openai-completions", BaseURL: "https://api.together.xyz/v1"},
-	"togetherai":       {API: "openai-completions", BaseURL: "https://api.together.xyz/v1"},
-	"fireworks-ai":     {API: "openai-completions", BaseURL: "https://api.fireworks.ai/inference/v1"},
-	"huggingface":      {API: "openai-completions", BaseURL: "https://router.huggingface.co/v1"},
-	"kimi-for-coding":  {API: "anthropic-messages", BaseURL: "https://api.kimi.com/coding"},
-	"google":           {API: "", BaseURL: "https://generativelanguage.googleapis.com/v1beta"}, // unsupported dialect in Magic today
-	"google-vertex":    {API: "", BaseURL: ""},
+	"openai":          {API: "openai-responses", BaseURL: "https://api.openai.com/v1"},
+	"anthropic":       {API: "anthropic-messages", BaseURL: "https://api.anthropic.com"},
+	"deepseek":        {API: "openai-completions", BaseURL: "https://api.deepseek.com"},
+	"xai":             {API: "openai-responses", BaseURL: "https://api.x.ai/v1"},
+	"groq":            {API: "openai-completions", BaseURL: "https://api.groq.com/openai/v1"},
+	"openrouter":      {API: "openai-completions", BaseURL: "https://openrouter.ai/api/v1"},
+	"moonshotai":      {API: "openai-completions", BaseURL: "https://api.moonshot.ai/v1"},
+	"moonshotai-cn":   {API: "openai-completions", BaseURL: "https://api.moonshot.cn/v1"},
+	"cerebras":        {API: "openai-completions", BaseURL: "https://api.cerebras.ai/v1"},
+	"mistral":         {API: "openai-completions", BaseURL: "https://api.mistral.ai"},
+	"minimax":         {API: "anthropic-messages", BaseURL: "https://api.minimax.io/anthropic"},
+	"minimax-cn":      {API: "anthropic-messages", BaseURL: "https://api.minimaxi.com/anthropic"},
+	"together":        {API: "openai-completions", BaseURL: "https://api.together.xyz/v1"},
+	"togetherai":      {API: "openai-completions", BaseURL: "https://api.together.xyz/v1"},
+	"fireworks-ai":    {API: "openai-completions", BaseURL: "https://api.fireworks.ai/inference/v1"},
+	"huggingface":     {API: "openai-completions", BaseURL: "https://router.huggingface.co/v1"},
+	"kimi-for-coding": {API: "anthropic-messages", BaseURL: "https://api.kimi.com/coding"},
+	"google":          {API: "", BaseURL: "https://generativelanguage.googleapis.com/v1beta"}, // unsupported dialect in Magic today
+	"google-vertex":   {API: "", BaseURL: ""},
 }
 
 // ResolveProviderDefaults returns api dialect + baseUrl for a models.dev provider.

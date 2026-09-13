@@ -11,7 +11,7 @@ func (s StubWriter) Harness() string                   { return s.ID }
 func (s StubWriter) Implemented() bool                 { return false }
 func (s StubWriter) BackupPrefix() string              { return "config" }
 func (s StubWriter) BackupExt() string                 { return ".bak" }
-func (s StubWriter) ConfigPath(userHome string) string  { return "" }
+func (s StubWriter) ConfigPath(userHome string) string { return "" }
 func (s StubWriter) Status(ctx Context) string {
 	return fmt.Sprintf("===== %s provider status =====\nnot implemented yet — add a SwitchWriter\n", s.ID)
 }

@@ -20,21 +20,21 @@ type Catalog struct {
 
 // Model is one Pi-shaped Magic model meta entry.
 type Model struct {
-	ID               string             `json:"id"`
-	Name             string             `json:"name,omitempty"`
-	Provider         string             `json:"provider"`
-	API              string             `json:"api,omitempty"`
-	BaseURL          string             `json:"baseUrl,omitempty"`
-	Reasoning        bool               `json:"reasoning"`
-	Input            []string           `json:"input,omitempty"`
-	Cost             Cost               `json:"cost"`
-	ContextWindow    int64              `json:"contextWindow"`
-	MaxTokens        int64              `json:"maxTokens"`
-	ThinkingLevelMap map[string]*string `json:"thinkingLevelMap,omitempty"`
-	Source           string             `json:"source,omitempty"`
-	ModelsDevProvider string            `json:"modelsDevProvider,omitempty"`
-	ToolCall         *bool              `json:"toolCall,omitempty"`
-	Unsupported      bool               `json:"unsupported,omitempty"`
+	ID                string             `json:"id"`
+	Name              string             `json:"name,omitempty"`
+	Provider          string             `json:"provider"`
+	API               string             `json:"api,omitempty"`
+	BaseURL           string             `json:"baseUrl,omitempty"`
+	Reasoning         bool               `json:"reasoning"`
+	Input             []string           `json:"input,omitempty"`
+	Cost              Cost               `json:"cost"`
+	ContextWindow     int64              `json:"contextWindow"`
+	MaxTokens         int64              `json:"maxTokens"`
+	ThinkingLevelMap  map[string]*string `json:"thinkingLevelMap,omitempty"`
+	Source            string             `json:"source,omitempty"`
+	ModelsDevProvider string             `json:"modelsDevProvider,omitempty"`
+	ToolCall          *bool              `json:"toolCall,omitempty"`
+	Unsupported       bool               `json:"unsupported,omitempty"`
 }
 
 // Cost is USD per million tokens (same as models.dev / Pi).

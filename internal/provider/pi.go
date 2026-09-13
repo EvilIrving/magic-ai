@@ -158,13 +158,13 @@ func writeProbeSummary(ctx Context, req ApplyRequest) error {
 		return err
 	}
 	summary := map[string]any{
-		"provider":  req.Name,
-		"endpoint":  req.Endpoint.ID,
-		"base_url":  req.Endpoint.BaseURL,
-		"protocol":  req.Endpoint.Protocol,
-		"key_env":   req.Provider.KeyEnv,
-		"pick":      req.Provider.Pick,
-		"harness":   "pi",
+		"provider": req.Name,
+		"endpoint": req.Endpoint.ID,
+		"base_url": req.Endpoint.BaseURL,
+		"protocol": req.Endpoint.Protocol,
+		"key_env":  req.Provider.KeyEnv,
+		"pick":     req.Provider.Pick,
+		"harness":  "pi",
 	}
 	b, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {

@@ -67,12 +67,12 @@ func TestPickEndpoint(t *testing.T) {
 
 func TestNormalizeProtocolAliases(t *testing.T) {
 	cases := map[string]string{
-		"openai":                 ProtocolOpenAIChatCompletions,
-		"OpenAI-Completions":     ProtocolOpenAIChatCompletions,
+		"openai":                  ProtocolOpenAIChatCompletions,
+		"OpenAI-Completions":      ProtocolOpenAIChatCompletions,
 		"openai-chat-completions": ProtocolOpenAIChatCompletions,
-		"responses":              ProtocolOpenAIResponses,
-		"anthropic":              ProtocolAnthropicMessages,
-		"ANTHROPIC-MESSAGES":     ProtocolAnthropicMessages,
+		"responses":               ProtocolOpenAIResponses,
+		"anthropic":               ProtocolAnthropicMessages,
+		"ANTHROPIC-MESSAGES":      ProtocolAnthropicMessages,
 	}
 	for in, want := range cases {
 		if got := NormalizeProtocol(in); got != want {
