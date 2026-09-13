@@ -15,8 +15,10 @@
 | [secrets-and-sync.md](./secrets-and-sync.md) | **对内** | **口径**：本地 `providers.json` 明文；`.enc` 只是云端状态 |
 | [getting-started.md](./getting-started.md) | **对外** | 产品是什么、两层内容、安装、五分钟上手 |
 | [library-layout.md](./library-layout.md) | **对内** | `~/.magic-ai` 目录已定死（skill / MCP / API / custom） |
-| [../README.md](../README.md) | 对外 + 常用命令 | 命令、providers、进库手段、apply 投影、R2 |
+| [../README.md](../README.md) | 对外 + 常用命令 | 英文 README：是什么、安装、最短路径、命令、边界 |
+| [../README.zh-CN.md](../README.zh-CN.md) | 对外 + 常用命令 | 同上的中文版；命令、providers、进库手段、apply 投影、R2 |
 | [harness-matrix.md](./harness-matrix.md) | **对内** | 各 harness 真实路径、投影、SwitchWriter |
+| [../LICENSE](../LICENSE) | 对外 | MIT |
 | [../AGENTS.md](../AGENTS.md) | **对内** | 产品边界、目的 vs 手段、数据方向、实现约定 |
 | [model-registry-from-pi.md](./model-registry-from-pi.md) | 对内 | models.dev → `models.json` |
 | [provider-onboarding.md](./provider-onboarding.md) | **对内** | **规划中**：`magic login` → 拉官方模型列表 → 勾选 → 写 providers.yaml + 密钥 |
