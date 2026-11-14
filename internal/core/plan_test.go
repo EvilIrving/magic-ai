@@ -11,6 +11,7 @@ import (
 	"magic/internal/adapters/codex"
 	"magic/internal/adapters/pi"
 	"magic/internal/adapters/stub"
+	"magic/internal/adapters/trae"
 )
 
 func writeFile(t *testing.T, path, content string) {
@@ -51,6 +52,11 @@ func findChange(t *testing.T, p Plan, id adapter.ID, rel string) Change {
 func TestPlanCreateOnMissingTarget(t *testing.T) {
 	magicHome, userHome := t.TempDir(), t.TempDir()
 	writeFile(t, filepath.Join(magicHome, "packs", "harness", "pi", "AGENTS.md"), "# Pi rules\n")
+	// The harness is installed (Detect finds ~/.pi/agent) but the target file is
+	// missing: that is the create the plan reports.
+	if err := os.MkdirAll(filepath.Join(userHome, ".pi", "agent"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	p, err := BuildPlan([]adapter.Adapter{pi.New()}, ApplyOptions{MagicHome: magicHome, UserHome: userHome})
 	if err != nil {
@@ -171,6 +177,9 @@ func TestPlanNeverCarriesSecretText(t *testing.T) {
 	const secret = "sk-live-abcdef123456"
 	writeFile(t, filepath.Join(magicHome, "packs", "harness", "claude", "settings.json"),
 		`{"env":{"ANTHROPIC_AUTH_TOKEN":"`+secret+`"}}`)
+	if err := os.MkdirAll(filepath.Join(userHome, ".claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	p, err := BuildPlan([]adapter.Adapter{claude.New()}, ApplyOptions{MagicHome: magicHome, UserHome: userHome})
 	if err != nil {
@@ -248,6 +257,39 @@ func TestPlanReasonFollowsActualStrategy(t *testing.T) {
 	}
 	if got := readFile(t, filepath.Join(userHome, ".claude", "settings.json")); FingerprintOf([]byte(got)) != c.After {
 		t.Fatalf("plan after=%s but apply wrote %s", c.After, FingerprintOf([]byte(got)))
+	}
+}
+
+// D26: plan uses the same Detect gate as apply. An uninstalled harness is
+// skipped with the reason the user can act on, and its library files are not
+// reported as missing targets, so they do not count as drift. --only names the
+// harness explicitly, the way apply pre-installs one.
+func TestPlanSkipsUninstalledHarness(t *testing.T) {
+	magicHome, userHome := t.TempDir(), t.TempDir()
+	writeFile(t, filepath.Join(magicHome, "packs", "harness", "trae", "foo.txt"), "library\n")
+
+	p, err := BuildPlan([]adapter.Adapter{trae.New()}, ApplyOptions{MagicHome: magicHome, UserHome: userHome})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Adapters) != 1 || p.Adapters[0].Skipped != "未安装" {
+		t.Fatalf("adapters = %+v, want trae skipped as 未安装", p.Adapters)
+	}
+	if p.Summary.Files != 0 {
+		t.Fatalf("summary = %+v, want no drift for an uninstalled harness", p.Summary)
+	}
+
+	p, err = BuildPlan([]adapter.Adapter{trae.New()},
+		ApplyOptions{MagicHome: magicHome, UserHome: userHome, Only: "trae"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Adapters) != 1 || p.Adapters[0].Skipped != "" {
+		t.Fatalf("adapters = %+v, want --only to bypass the gate", p.Adapters)
+	}
+	c := findChange(t, p, "trae", "foo.txt")
+	if c.Action != ActionCreate {
+		t.Fatalf("action = %s, want create", c.Action)
 	}
 }
 

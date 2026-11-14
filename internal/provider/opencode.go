@@ -7,15 +7,20 @@ import (
 	"path/filepath"
 	"strings"
 
+	"magic/internal/appdir"
 	"magic/internal/catalog"
 	"magic/internal/secrets"
 )
 
 const opencodeMagicPrefix = "magic-"
 
-// OpenCodeWriter projects providers.yaml into ~/.config/opencode/opencode.json.
-// Credentials may also live in ~/.local/share/opencode/auth.json (/connect);
-// third-party Apply writes apiKey into provider.options for a working offline path.
+// OpenCodeWriter projects providers.yaml into the OpenCode config root:
+// $XDG_CONFIG_HOME/opencode/opencode.json, ~/.config/opencode/opencode.json when
+// XDG_CONFIG_HOME is unset. Credentials may also live in
+// ~/.local/share/opencode/auth.json (/connect); third-party Apply writes apiKey
+// into provider.options for a working offline path.
+//
+// Source: upstream | opencode reads XDG_CONFIG_HOME for its config root (see internal/adapters/opencode) | checked 2026-11-14 | verified
 type OpenCodeWriter struct{}
 
 func (OpenCodeWriter) Harness() string        { return HarnessOpenCode }
@@ -24,7 +29,7 @@ func (OpenCodeWriter) SupportsOfficial() bool { return false } // OpenCode is a 
 func (OpenCodeWriter) BackupPrefix() string   { return "opencode" }
 func (OpenCodeWriter) BackupExt() string      { return ".json" }
 func (OpenCodeWriter) ConfigPath(userHome string) string {
-	dir := filepath.Join(userHome, ".config", "opencode")
+	dir := filepath.Join(appdir.ConfigHome(userHome), "opencode")
 	jsonc := filepath.Join(dir, "opencode.jsonc")
 	jsonp := filepath.Join(dir, "opencode.json")
 	if _, err := os.Stat(jsonp); err == nil {
@@ -40,7 +45,8 @@ func opencodeProviderID(name string) string {
 	return opencodeMagicPrefix + strings.TrimSpace(name)
 }
 
-// Files projects the resolved selection into ~/.config/opencode/opencode.json:
+// Files projects the resolved selection into the OpenCode config root's
+// opencode.json:
 // one Magic-managed provider block plus the default model, or the managed
 // entries removed for none.
 func (w OpenCodeWriter) Files(ctx Context, req ApplyRequest) ([]FileWrite, error) {

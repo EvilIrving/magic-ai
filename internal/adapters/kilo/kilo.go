@@ -1,9 +1,21 @@
 // Package kilo is the Magic adapter for Kilo Code CLI.
-// MCP: ~/.config/kilo/kilo.json (key mcp, OpenCode-style). Skills: ~/.kilo/skills.
-
+// MCP: <config>/kilo.json (key mcp, OpenCode-style). Skills: ~/.kilo/skills.
+// Config root is $XDG_CONFIG_HOME/kilo, ~/.config/kilo when XDG_CONFIG_HOME is
+// unset.
+//
 // Source: vendor-doc | kilo.ai/docs | checked 2026-09-13 | stale?
 //   Docs confirm the OpenCode `mcp` dialect; the config filename has varied by
 //   version, so kiloPath probes several candidates instead of guessing one.
+//
+// Source: vendor-blog | blog.kilo.ai — Kilo Code CLI relocated its config and data dirs to XDG_CONFIG_HOME and XDG_DATA_HOME | checked 2026-11-14 | verified
+//
+// Never: apply that XDG move to SkillsDir. Kilo keeps agent skills in
+// ~/.kilo/skills, not under the config root (docs/supported-harnesses.md).
+//
+// Never: declare hooks. Kilo has no native hook events — the request is still
+// open upstream (docs/hooks-design.md), so Caps.Hooks stays false and Magic
+// writes no hooks for it. Claiming otherwise would make `magic adapters`
+// advertise a projection that lands nowhere.
 package kilo
 
 import (
@@ -11,6 +23,7 @@ import (
 	"path/filepath"
 
 	"magic/internal/adapter"
+	"magic/internal/appdir"
 )
 
 type Adapter struct{}
@@ -22,10 +35,11 @@ func (a *Adapter) Name() string        { return "Kilo Code" }
 func (a *Adapter) Platforms() []string { return []string{"any"} }
 func (a *Adapter) Implemented() bool   { return true }
 func (a *Adapter) Caps() adapter.Caps {
-	return adapter.Caps{Skills: true, MCP: true, Hooks: true}
+	// No Hooks: Kilo has no native hook events (docs/hooks-design.md).
+	return adapter.Caps{Skills: true, MCP: true}
 }
 func (a *Adapter) root(home string) string {
-	return filepath.Join(home, ".config", "kilo")
+	return filepath.Join(appdir.ConfigHome(home), "kilo")
 }
 func (a *Adapter) Detect(home string) bool {
 	if st, err := os.Stat(a.root(home)); err == nil && st.IsDir() {

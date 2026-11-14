@@ -388,7 +388,14 @@ func TestPlanNoMirrorRootStillProjectsMCP(t *testing.T) {
 // apply never projects a provider into codex — only `magic provider use` writes
 // it. A harness apply does project has nothing to add.
 func TestPlanSkipReasonNamesProviderProjectionGap(t *testing.T) {
-	p, err := BuildPlan([]adapter.Adapter{codex.New(), pi.New()}, ApplyOptions{MagicHome: t.TempDir(), UserHome: t.TempDir()})
+	magicHome, userHome := t.TempDir(), t.TempDir()
+	// Both harnesses are installed but the library has no mirror tree for them.
+	for _, dir := range []string{".codex", ".pi/agent"} {
+		if err := os.MkdirAll(filepath.Join(userHome, filepath.FromSlash(dir)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	p, err := BuildPlan([]adapter.Adapter{codex.New(), pi.New()}, ApplyOptions{MagicHome: magicHome, UserHome: userHome})
 	if err != nil {
 		t.Fatal(err)
 	}

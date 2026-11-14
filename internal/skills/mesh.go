@@ -54,6 +54,30 @@ type Stats struct {
 type Result struct {
 	Lines []string
 	Stats Stats
+	// Targets is the structured form of the rows `magic skills status` prints,
+	// for --json. Other commands leave it empty.
+	Targets []TargetStatus
+}
+
+// TargetStatus is one agent row of a status report: the counts that command
+// prints, plus how the directory is shared. SharedWith / Primary / CompatReads
+// are only filled for global scope; project targets are per-repo.
+type TargetStatus struct {
+	Scope       Scope
+	Agent       string
+	Dir         string
+	SharedWith  []string
+	Primary     bool
+	CompatReads []string
+	Linked      int
+	Missing     int
+	Conflicts   int
+	Stale       int
+	External    int
+	// NoUpstreamEntry marks an agent the upstream skills path table does not
+	// list (hermes, mimocode): its dir comes from the adapter, so there is
+	// nothing to say about sharing and the row is reported, not an error.
+	NoUpstreamEntry bool
 }
 
 func (r *Result) line(format string, args ...any) {
@@ -143,7 +167,7 @@ func setupScope(o Options, scope Scope) (*scopeCtx, error) {
 
 func (ctx *scopeCtx) targetDir(agent string) (string, error) {
 	if ctx.Scope == ScopeGlobal {
-		return GlobalTargetDir(agent, ctx.ScopeRoot)
+		return globalAgentDir(agent, ctx.ScopeRoot)
 	}
 	return ProjectTargetDir(agent, ctx.ScopeRoot)
 }
@@ -527,8 +551,28 @@ func Status(o Options) (*Result, error) {
 }
 
 func statusTarget(target, agent string, ctx *scopeCtx, o Options, r *Result) {
+	row := TargetStatus{Scope: ctx.Scope, Agent: agent, Dir: target}
+	// Sharing is a global-layer fact: several globalSkills ids can resolve to one
+	// directory, and a few harnesses are documented to read it on top of their own.
+	if ctx.Scope == ScopeGlobal {
+		if !KnownAgent(agent) {
+			// Magic has an adapter for this harness but the upstream table has no
+			// row for its id: report the row without sharing facts instead of
+			// failing the whole command.
+			row.NoUpstreamEntry = true
+			row.Primary = isPrimaryPath(agent, ctx.ScopeRoot, target)
+		} else if info, err := GlobalDirInfo(agent, ctx.ScopeRoot); err == nil {
+			row.SharedWith = info.SharedWith
+			row.Primary = info.Primary
+			row.CompatReads = info.CompatReads
+		} else {
+			r.errf("%v", err)
+		}
+	}
 	if st, err := os.Stat(target); err != nil || !st.IsDir() {
-		r.line("- %s: target missing (%s)", agent, target)
+		row.detail(r, o)
+		r.Targets = append(r.Targets, row)
+		r.line("%s", row.summaryLine(fmt.Sprintf("target missing (%s)", target)))
 		return
 	}
 	linked, missing, conflicts, stale, external := 0, 0, 0, 0, 0
@@ -587,8 +631,53 @@ func statusTarget(target, agent string, ctx *scopeCtx, o Options, r *Result) {
 			external++
 		}
 	}
-	r.line("- %s: linked %d, missing %d, conflicts %d, stale %d, external %d",
-		agent, linked, missing, conflicts, stale, external)
+	row.Linked, row.Missing, row.Conflicts, row.Stale, row.External = linked, missing, conflicts, stale, external
+	r.Targets = append(r.Targets, row)
+	row.detail(r, o)
+	r.line("%s", row.summaryLine(fmt.Sprintf("linked %d, missing %d, conflicts %d, stale %d, external %d",
+		linked, missing, conflicts, stale, external)))
+}
+
+// detail prints the indented lines that qualify a row: the extra directories the
+// harness reads (documentation), and with -v which agents share the directory.
+func (row TargetStatus) detail(r *Result, o Options) {
+	if len(row.CompatReads) > 0 {
+		r.line("  compat reads: %s", strings.Join(row.CompatReads, ", "))
+	}
+	if o.Verbose && len(row.SharedWith) > 0 {
+		r.line("  shared with: %s", strings.Join(row.SharedWith, ", "))
+	}
+}
+
+// summaryLine renders the row: the SHARED/PRIMARY cells for global scope (the
+// only scope where several ids can resolve to one directory), then the counts.
+func (row TargetStatus) summaryLine(counts string) string {
+	if row.Scope == ScopeGlobal {
+		if row.NoUpstreamEntry {
+			return fmt.Sprintf("- %s: no upstream entry, primary %s, %s",
+				row.Agent, primaryCell(row.Primary), counts)
+		}
+		return fmt.Sprintf("- %s: shared %s, primary %s, %s",
+			row.Agent, sharedCell(row.SharedWith), primaryCell(row.Primary), counts)
+	}
+	return fmt.Sprintf("- %s: %s", row.Agent, counts)
+}
+
+// sharedCell renders the SHARED column: "-" when no other id resolves to this
+// directory, "+N" when N others do.
+func sharedCell(sharedWith []string) string {
+	if len(sharedWith) == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("+%d", len(sharedWith))
+}
+
+// primaryCell reports whether the directory is the agent's own skills path.
+func primaryCell(primary bool) string {
+	if primary {
+		return "yes"
+	}
+	return "no"
 }
 
 // Clean removes stale managed links (and optionally orphaned).

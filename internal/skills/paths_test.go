@@ -1,6 +1,9 @@
 package skills
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestKnownAgentLongTail(t *testing.T) {
 	for _, id := range []string{"qoder", "kimi-code-cli", "antigravity-cli", "qwen-code", "iflow-cli", "zed"} {
@@ -16,6 +19,7 @@ func TestKnownAgentLongTail(t *testing.T) {
 }
 
 func TestGlobalTargetDirLongTail(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "")
 	cases := map[string]string{
 		"qoder":           ".qoder/skills",
 		"kimi-code-cli":   ".agents/skills",
@@ -34,6 +38,31 @@ func TestGlobalTargetDirLongTail(t *testing.T) {
 	}
 	if _, err := GlobalTargetDir("windsurf", "/home/u"); err == nil {
 		t.Error("windsurf must not resolve (D13)")
+	}
+}
+
+// The table already carried .config/ paths before Magic honoured XDG; the
+// expansion happens in GlobalTargetDir, so two agents in the same .config tree
+// move together while the rest stay under $HOME.
+func TestGlobalTargetDirHonoursXDGConfigHome(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(t.TempDir(), "xdg-config")
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	got, err := GlobalTargetDir("opencode", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(xdg, "opencode", "skills"); got != want {
+		t.Errorf("opencode: got %q, want %q", got, want)
+	}
+
+	got, err = GlobalTargetDir("pi", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(home, ".pi", "agent", "skills"); got != want {
+		t.Errorf("pi is not a .config entry, got %q, want %q", got, want)
 	}
 }
 

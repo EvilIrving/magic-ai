@@ -1,11 +1,13 @@
 // Package mimocode is the Magic adapter for MiMo Code (XiaomiMiMo/MiMo-Code),
-// a fork of OpenCode. Config root is ~/.config/mimocode (MIMOCODE_HOME changes
-// it to $MIMOCODE_HOME/config); the config file is mimocode.json[c] and uses the
-// OpenCode dialect. Source: packages/shared/src/global.ts,
-// packages/opencode/src/config/config.ts.
+// a fork of OpenCode. Config root is $MIMOCODE_HOME/config when MIMOCODE_HOME is
+// set, else $XDG_CONFIG_HOME/mimocode (default ~/.config/mimocode); the config
+// file is mimocode.json[c] and uses the OpenCode dialect. Source:
+// packages/shared/src/global.ts, packages/opencode/src/config/config.ts.
 
 // Source: upstream | mimocode packages/shared/src/global.ts | checked 2026-09-13 | verified
 //   OpenCode dialect; honours an env-var config root before falling back.
+//
+// Source: upstream | https://github.com/XiaomiMiMo/MiMo-Code/blob/main/packages/shared/src/global.ts resolveMimocodeHome(): config = path.join(xdgConfig, "mimocode"), xdgConfig from the xdg-basedir package | checked 2026-11-14 | verified
 package mimocode
 
 import (
@@ -13,6 +15,7 @@ import (
 	"path/filepath"
 
 	"magic/internal/adapter"
+	"magic/internal/appdir"
 )
 
 type Adapter struct{}
@@ -33,10 +36,7 @@ func (a *Adapter) root(home string) string {
 	if v := os.Getenv("MIMOCODE_HOME"); v != "" {
 		return filepath.Join(filepath.Clean(v), "config")
 	}
-	if v := os.Getenv("XDG_CONFIG_HOME"); v != "" {
-		return filepath.Join(filepath.Clean(v), "mimocode")
-	}
-	return filepath.Join(home, ".config", "mimocode")
+	return filepath.Join(appdir.ConfigHome(home), "mimocode")
 }
 
 func (a *Adapter) Detect(home string) bool {

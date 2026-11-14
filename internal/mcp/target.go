@@ -3,6 +3,8 @@ package mcp
 import (
 	"os"
 	"path/filepath"
+
+	"magic/internal/appdir"
 )
 
 // Target describes where and how one harness stores MCP servers.
@@ -55,6 +57,7 @@ var targets = map[string]Target{
 	"opencode": {
 		// Source: vendor-doc | opencode.ai/docs/mcp-servers (key `mcp`, not `mcpServers`) | checked 2026-09-13 | verified
 		// Source: vendor-doc | opencode.ai/config.json ($schema) | checked 2026-09-13 | verified
+		// Source: upstream | opencode reads XDG_CONFIG_HOME for its config root (see internal/adapters/opencode) | checked 2026-11-14 | verified
 		Harness: "opencode", Style: StyleOpenCode, Format: FormatJSON, TopKey: "mcp",
 		Path: openCodePath,
 	},
@@ -168,6 +171,7 @@ var targets = map[string]Target{
 		// Source: vendor-doc | kilo.ai/docs | checked 2026-09-13 | stale?
 		// Docs confirm Kilo speaks the OpenCode `mcp` dialect; the exact config filename
 		// varies across versions, hence kiloPath probes several candidates.
+		// Source: vendor-blog | Kilo relocated its config to XDG_CONFIG_HOME (see internal/adapters/kilo) | checked 2026-11-14 | verified
 		Harness: "kilo", Style: StyleOpenCode, Format: FormatJSON, TopKey: "mcp",
 		Path: kiloPath,
 	},
@@ -175,8 +179,9 @@ var targets = map[string]Target{
 		// Source: internal | docs/supported-harnesses.md §调研来源 (Zed) | checked 2026-09-13 | stale?
 		// zed.dev MCP doc URLs currently 404 — do not cite one until a live page is found.
 		// TopKey `context_servers` is Zed's own name; stdio only (no native HTTP transport).
+		// Source: vendor-doc | zed.dev/docs/configuring-zed: Linux reads $XDG_CONFIG_HOME/zed/settings.json (see internal/adapters/zed) | checked 2026-11-14 | verified
 		Harness: "zed", Style: StyleZed, Format: FormatJSON, TopKey: "context_servers",
-		Path: func(h string) string { return filepath.Join(h, ".config", "zed", "settings.json") },
+		Path: zedPath,
 	},
 	"omp": {
 		// Source: upstream | omp repo packages/utils/src/dirs.ts, docs/settings.md, docs/mcp-config.md
@@ -194,8 +199,10 @@ var targets = map[string]Target{
 	"mimocode": {
 		// Source: upstream | mimocode packages/shared/src/global.ts; OpenCode dialect
 		//   see internal/adapters/mimocode | checked 2026-09-13 | verified
+		// Source: upstream | resolveMimocodeHome(): $MIMOCODE_HOME/config outranks $XDG_CONFIG_HOME/mimocode
+		//   (see internal/adapters/mimocode) | checked 2026-11-14 | verified
 		Harness: "mimocode", Style: StyleOpenCode, Format: FormatJSON, TopKey: "mcp",
-		Path: func(h string) string { return filepath.Join(h, ".config", "mimocode", "mimocode.json") },
+		Path: mimoCodePath,
 	},
 	"dimagent": {
 		// Source: vendor-doc | dimagent.com/en/docs/config (see internal/adapters/dimagent) | checked 2026-09-13 | verified
@@ -229,7 +236,7 @@ func Targets() []Target {
 }
 
 func kiloPath(home string) string {
-	dir := filepath.Join(home, ".config", "kilo")
+	dir := filepath.Join(appdir.ConfigHome(home), "kilo")
 	for _, name := range []string{"kilo.json", "kilo.jsonc", "config.json"} {
 		p := filepath.Join(dir, name)
 		if fileExists(p) {
@@ -240,7 +247,7 @@ func kiloPath(home string) string {
 }
 
 func openCodePath(home string) string {
-	dir := filepath.Join(home, ".config", "opencode")
+	dir := filepath.Join(appdir.ConfigHome(home), "opencode")
 	json := filepath.Join(dir, "opencode.json")
 	jsonc := filepath.Join(dir, "opencode.jsonc")
 	if fileExists(json) {
@@ -250,6 +257,19 @@ func openCodePath(home string) string {
 		return jsonc
 	}
 	return json
+}
+
+func zedPath(home string) string {
+	return filepath.Join(appdir.ConfigHome(home), "zed", "settings.json")
+}
+
+// mimoCodePath repeats the adapter's precedence on purpose: an imported adapter
+// would make this leaf table depend on the dialect packages.
+func mimoCodePath(home string) string {
+	if v := os.Getenv("MIMOCODE_HOME"); v != "" {
+		return filepath.Join(filepath.Clean(v), "config", "mimocode.json")
+	}
+	return filepath.Join(appdir.ConfigHome(home), "mimocode", "mimocode.json")
 }
 
 func workBuddyPath(home string) string {

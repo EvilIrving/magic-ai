@@ -127,9 +127,10 @@ func (p Plan) JSON() ([]byte, error) {
 // BuildPlan returns the plan for every adapter in adapters. It only reads files.
 //
 // The layers are the ones apply writes, in apply's order: the harness mirror
-// tree, the Claude partial merge into ~/.claude.json, the provider projection,
-// then the MCP projection. Each layer merges into the previous layer's bytes, so
-// the final fingerprint is what apply leaves on disk.
+// tree, the shared instruction source (packs/AGENTS.md), the Claude partial merge
+// into ~/.claude.json, the provider projection, then the MCP projection. Each
+// layer merges into the previous layer's bytes, so the final fingerprint is what
+// apply leaves on disk.
 //
 // Skills and sub-agent projection are not part of it; they are directory
 // projections reported by `magic skills status` and `magic agents`.
@@ -272,8 +273,10 @@ func (pf *planFiles) remove(f *planFile) {
 }
 
 // rel names a target in the plan: the library-relative path for a mirrored file,
-// the name apply and rollback use for ~/.claude.json, and the user-home relative
-// path (where provider and MCP projections live) otherwise.
+// the name apply and rollback use for ~/.claude.json, the user-home relative
+// path for a file a layer names that way (provider, MCP, and the shared
+// instruction layer, whose file sits inside the mirror root but is not mirrored),
+// and the path under the mirror root otherwise.
 func (pf *planFiles) rel(path string) string {
 	if path == filepath.Join(pf.userHome, ".claude.json") {
 		return backup.ClaudeJSONRel
@@ -300,6 +303,14 @@ func buildAdapterPlan(a adapter.Adapter, opts ApplyOptions, lib projectionLayers
 		ap.Skipped = "adapter 未实现"
 		return ap, nil
 	}
+	// The same gate apply uses: an adapter Detect does not find on the user home
+	// gets nothing, so plan reports it skipped instead of listing its library
+	// files as missing targets. --only bypasses the gate, the way it lets apply
+	// pre-install a harness.
+	if !a.Detect(opts.UserHome) && opts.Only != string(a.ID()) {
+		ap.Skipped = "未安装"
+		return ap, nil
+	}
 	mirrorRoot := a.MirrorRoot(opts.UserHome)
 	files := newPlanFiles(opts.UserHome, mirrorRoot)
 	srcRoot := filepath.Join(opts.MagicHome, a.LibraryMirrorRel())
@@ -312,6 +323,9 @@ func buildAdapterPlan(a adapter.Adapter, opts ApplyOptions, lib projectionLayers
 	} else if st, err := os.Stat(srcRoot); err != nil || !st.IsDir() {
 		mirrorProblem = "配置库里没有镜像目录 " + srcRoot
 	} else if err := mirrorLayer(files, srcRoot); err != nil {
+		return ap, err
+	}
+	if err := sharedInstructionLayer(a, opts, files); err != nil {
 		return ap, err
 	}
 	if a.ID() == "claude" {

@@ -353,7 +353,10 @@ key 用 Codex 原生 `env_key`，不写真值 token。
   用户自己的配置不动。
 - **缺密钥不失败但有方向**：Claude / Pi / OpenCode / WorkBuddy 都需要真值，缺了就 skip 并提示
   `magic secrets set <KEY_ENV> --value …`。无密钥的官方路径不需要。
-- **未探测到的 harness 默认跳过**（除非 `--only` 指定）。
+- **未安装的 harness 默认跳过**（除非 `--only` 指定）：镜像树、`packs/skills`、`packs/agents`、共享
+  `packs/AGENTS.md`、provider、MCP 六处写入都过 `Detect` 这道门，不会给没装的工具创建
+  `~/.factory/`、`~/.trae/`、`~/.qwen/` 这类目录（D26）。`magic apply --only <id>` 是显式预装：
+  先写该工具的配置，再打开工具；`magic plan` 对未安装的 adapter 显示 skipped（原因「未安装」）。
 - **能力不对等**（D10）：某家没有的面（skills / MCP / models）跳过，日志 `n/a`，不造空文件。
 
 ---
@@ -411,6 +414,28 @@ magic skills adopt --from AGENT           # 把某 agent 目录里没管的 skil
 ```
 
 `--include-global` 只对 **project scope 的 sync** 有意义，不是 `list` 的开关。
+
+**共享层**：`magic skills sync --shared` **只写**标准目录 `~/.agents/skills` 这一份，不碰任何工具自己的主路径
+（那是默认 `magic skills sync` 的活）。技能路径表里把它当**主路径**的有 8 个 id：
+`cline, dexto, kimi-code, kimi-code-cli, loaf, sarvam-code, warp, zed`；其中 Magic 有 adapter 的只有
+`cline / kimi-code / zed`，所以一份共享层等于让另外 5 家（`dexto / kimi-code-cli / loaf / sarvam-code / warp`）
+直接生效，不必为它们各写 adapter。
+
+对「有自己的主路径、只是兼容读共享层」的工具（pi / grok / codex / cursor / trae），共享层优先级更低——grok 读
+`~/.claude/skills` 是 Lowest 且可配置，用户主路径的值会盖过共享层。共享层里非 Magic 创建的条目保持原样并
+逐个报告（`shared: keep …`）：不删、不覆盖，`--force` 也不作用于它。`--shared` 与 `--scope project`、
+`--target` 都互斥：后两者说的都是「某个工具自己的主路径」，和「只写标准目录」不是一件事，给了就报错，
+不静默忽略。
+
+`magic skills status` 的每行多两列：`shared +N`（另有 N 个**工具**指向同一目录）/ `shared -`，以及
+`primary yes|no`（该目录是不是这个工具自己的主路径；`cline / zed / kimi-code / pi / grok / codex` 为 yes，
+`workbuddy` 与表里没有 adapter 的 id 为 no）。别名不算「另一个工具」：`claude-code`（= `claude`）、
+`kimi-code-cli`（= `kimi-code`）、`codebuddy`（= `workbuddy`，D15）在 `shared_with` 里都归一到规范 id 且只出现一次，
+所以 `claude` 是 `shared -`，`cline` 是 `shared +6`（含 `kimi-code`，不含 `kimi-code-cli`）。
+表里没有记录、但 Magic 有 adapter 的 harness（`hermes`、`mimocode`）显示 `no upstream entry`，目录取其 adapter
+声明的 skills 路径，不算错误、不影响退出码。`compat reads:` 行列该工具另外还会读的目录——**文档声明，只用于
+显示，不参与任何写入决策**。`magic skills status --json` 带同样的 `shared_with` / `primary` / `compat_reads`，
+这类 agent 另有 `no_upstream_entry: true`。
 
 行为约定 ✅：**永不删除真实目录**；冲突 = 真目录或非受管链接，报出来不覆盖。
 项目级 skill 用 `magic skills sync --scope project`，**不是** `magic apply`。

@@ -36,6 +36,7 @@ type Paths struct {
 	PacksSkills   string
 	PacksMCP      string
 	PacksAgents   string
+	PacksAGENTS   string
 	PacksHarness  string
 	Registry      string
 	Secrets       string
@@ -51,6 +52,7 @@ func NewPaths(root string) Paths {
 		PacksSkills:   filepath.Join(root, "packs", "skills"),
 		PacksMCP:      filepath.Join(root, "packs", "mcp"),
 		PacksAgents:   filepath.Join(root, "packs", "agents"),
+		PacksAGENTS:   filepath.Join(root, "packs", "AGENTS.md"),
 		PacksHarness:  filepath.Join(root, "packs", "harness"),
 		Registry:      filepath.Join(root, "registry"),
 		Secrets:       filepath.Join(root, "secrets"),
@@ -134,6 +136,11 @@ On ` + "`magic apply`" + `, files are copied into each Caps.Agents harness path:
 			return err
 		}
 	}
+	if _, err := os.Stat(p.PacksAGENTS); os.IsNotExist(err) {
+		if err := writefile.Atomic(p.PacksAGENTS, []byte(sharedInstructionsPlaceholder), 0o644); err != nil {
+			return err
+		}
+	}
 	if _, err := os.Stat(p.README); os.IsNotExist(err) {
 		content := `# Magic 配置库 / Config Library
 
@@ -141,6 +148,7 @@ On ` + "`magic apply`" + `, files are copied into each Caps.Agents harness path:
 
 - packs/skills — 全局 Skill 真相源；magic skills sync / magic apply 投影到各 harness
 - packs/agents — sub-agent 定义（*.md）
+- packs/AGENTS.md — 共享用户级指令（可选）：一份内容写进各家已安装 harness 的用户级文件
 - packs/harness/<id> — 各 harness 自定义文件（apply 写回该 harness）
 - providers.yaml — provider / pick（无密钥）
 - secrets/providers.json — 密钥明文（0600）。本地无 .enc；.enc 只是云端状态

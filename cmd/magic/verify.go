@@ -316,6 +316,9 @@ func planSkippedFor(p core.Plan, id string) bool {
 // so an enabled list that leaves the content out is reported as that, not as an
 // empty library.
 func libraryHasNoProjectableContent(magicHome string) bool {
+	if _, hasContent, err := core.LoadSharedInstructions(magicHome); err == nil && hasContent {
+		return false
+	}
 	for _, a := range registry.List() {
 		if !a.Implemented() {
 			continue

@@ -12,6 +12,7 @@ magic 把配置库 `~/.magic-ai` 编译成每个 AI coding harness 自己的配�
 | 核心 | `internal/core` | `plan`、`apply`、合并规则、原子写、备份、库路径 | 不打印、不读 `os.Args` |
 | 契约 | `internal/adapter` | `Adapter` 接口、`Caps`、`Drift`、`Result` | 不依赖任何 harness |
 | 方言 | `internal/adapters/<id>` | 一个 harness 的配置根、各资产目录、能力声明 | 不读写文件 |
+| 目录 | `internal/appdir` | `$XDG_CONFIG_HOME` / `$XDG_DATA_HOME` 解析：绝对路径才采用，否则回落 `~/.config` / `~/.local/share` | 不依赖任何 magic 包（只标准库） |
 | 资产 | `internal/{skills,agents,mcp,provider,secrets,catalog,registry,sync}` | skill 目录、sub-agent、MCP 配置翻译、provider 切换、密钥、模型目录、云同步 | 不感知 CLI |
 | 备份清单 | `internal/backup` | `backups/<stamp>/manifest.json`：apply 写了什么、原内容在哪、内容指纹（`before`/`after`）是多少、rollback 该恢复还是删除 | 不依赖 `internal/core`（core 与 mcp 都写清单，叶子包避免反向依赖） |
 
@@ -20,7 +21,7 @@ magic 把配置库 `~/.magic-ai` 编译成每个 AI coding harness 自己的配�
 ## 一次 apply 的数据流
 
 1. 从配置库读 `magic.yaml`、`providers.yaml`、`secrets/providers.json`、`packs/`。
-2. 每个 adapter 用自己的 `MirrorRoot` 与 `LibraryMirrorRel` 算出目标目录和库内目录。
+2. 每个 adapter 用自己的 `MirrorRoot` 与 `LibraryMirrorRel` 算出目标目录和库内目录。**只有 `Detect(userHome)` 命中的 harness 才会继续**，`--only <id>` 显式指名时绕过：镜像树、skills、sub-agents、共享 `AGENTS.md`、provider、MCP 六处写入共用这一道门（D26），没装的工具不会被创建目录。plan 在 `buildAdapterPlan` 开头做同一个判断，未安装的 adapter 直接标为 skipped（`未安装`），所以 plan 不会把它的库内文件算成缺失目标/漂移。
 3. 每个文件用 `projectBytes` 决定写入内容：目标不存在则写库内容；结构化 JSON 深合并；`config.toml` 文本合并；其余原样覆盖。
 4. 写入前先在 `backups/<时间戳>/manifest.json` 记一条：目标已存在则先复制到 `backups/<时间戳>/<adapter>/<相对路径>` 并记为 `update`（`before` = 副本内容的指纹），目标不存在则记为 `create`（rollback 时删除）。两条都记 `after` = apply 即将写入内容的指纹。然后原子写（临时文件 + rename）。内容与权限都与库一致的文件跳过写入，不碰 mtime。
 5. claude 额外把 `packs/harness/claude/claude.json.partial.json` 的顶层键合并进 `~/.claude.json`。
@@ -34,7 +35,7 @@ magic 把配置库 `~/.magic-ai` 编译成每个 AI coding harness 自己的配�
 - **I2 只写配置。** 不安装工具、不改 PATH、不代理流量、不改请求。
 - **I3 非破坏合并。** 库没有定义的键和行一律保留（`decisions.md` D5）。`plan` 里的 `keep` 就是这条的可见形式。
 - **I4 写前备份、写时原子，且回滚可完整。** 任何覆盖先备份；写入用临时文件加 rename。每次 apply 写 `manifest.json`：`update` 条目可恢复，`create` 条目可删除——没有清单的旧备份只能恢复文件，不能删新建。回滚不丢用户的新改动：目标内容指纹既不是 `after`（apply 写的）也不是 `before`（apply 换掉的）时跳过并报告，`--force` 才按清单执行；目标越出 `UserHome`、备份路径越出备份集的条目一律不执行（`--force` 也不执行）。
-- **I5 plan 与 apply 共用同一份写入计算。** 镜像层两者都调用 `projectBytes`，MCP 层两者都调用 `mcp.ProjectBytes` / `mcp.MergeProjection`，provider 层两者都调用该 harness 的 `SwitchWriter.Files`（`provider.ApplyFiles` 落盘）。plan 不可能描述一个 apply 不会做的写入。plan 按 apply 的顺序叠层（镜像 → claude partial → provider → mcp），后置层合并进前一层的字节，`after` 就是 apply 之后的目标内容。
+- **I5 plan 与 apply 共用同一份写入计算。** 镜像层两者都调用 `projectBytes`，MCP 层两者都调用 `mcp.ProjectBytes` / `mcp.MergeProjection`，provider 层两者都调用该 harness 的 `SwitchWriter.Files`（`provider.ApplyFiles` 落盘）。`Detect` 门也是同一处判断：apply 的六处写入与 plan 的 adapter 层都只处理已安装的 harness（`--only` 指名时绕过，D26）。plan 不可能描述一个 apply 不会做的写入。plan 按 apply 的顺序叠层（镜像 → claude partial → provider → mcp），后置层合并进前一层的字节，`after` 就是 apply 之后的目标内容。
 - **I6 plan 不含明文。** 内容只以 `sha256:<前 12 位>` 形式出现，密钥、token 不会进 JSON、日志或提交。
 - **I7 库结构变更必须带迁移。** `magic.yaml` 的 `schema_version` 记录库结构版本，当前为 `core.LibrarySchemaVersion = 1`。旧库（字段缺失即 0）由 `magic migrate` 升级：用 `yaml.Node` 只改 `schema_version`，保留其它字段、字段顺序与注释，写盘前把 `magic.yaml` 备份进 `backups/<stamp>/`；已是当前版本时幂等、不写盘。`apply` / `plan` / `verify` / `doctor` 遇到旧库不静默写入，提示先 migrate；库比程序新时一律拒绝写入，避免旧程序改坏新库。
 
@@ -58,6 +59,7 @@ type Adapter interface {
 - `Caps` 声明这个 harness 支持哪些投影（skills、sub-agents、MCP、hooks、models、themes）。声明为 `false` 的投影不会被写入。
 - `Implemented() == false` 的 adapter 只能出现在 `status` 和 `plan` 的「跳过」里，永远不写文件。
 - `MirrorRoot` 是这个 harness 的配置根；`LibraryMirrorRel` 固定为 `packs/harness/<id>`。
+- 配置根经 `internal/appdir` 解析：`$XDG_CONFIG_HOME` 是绝对路径时用它，否则 `~/.config`；相对路径的取值按 XDG 规范忽略，目录还不存在不影响采用（magic 自己会建）。harness 自己的专属环境变量（`MIMOCODE_HOME`、`GOOSE_PATH_ROOT` 等）优先。
 - adapter 只做路径与能力声明，不读写文件。写入决策留在 `internal/core`。
 
 ## 四个动作的现状
@@ -84,6 +86,18 @@ type Adapter interface {
 
 - 不引入请求代理层。没有网关、没有协议翻译、没有账号与额度调度。这些属于运行时的流量层，magic 只产出配置文件。
 - 不让核心依赖终端。`internal/core` 里不出现打印与参数解析，将来加 TUI 或 GUI 时复用同一份核心。
+
+## 本地验收
+
+提交前在本机跑完：
+
+```sh
+make vet-cross        # GOOS=linux / GOOS=windows 各一遍 go vet ./...
+go build ./...
+go test ./...         # make test 先跑 vet-cross
+```
+
+Windows 没有 CI，也不在 `go test` 的宿主平台上：路径分隔符、`SysProcAttr` 之类的平台差异只有在 `vet-cross` 这一关才会暴露，所以它是 `make test` 的前置。
 
 ## 文档索引
 

@@ -282,7 +282,7 @@ func TestOpenCodeApplyAndOfficialClear(t *testing.T) {
 	tmp := t.TempDir()
 	magic := filepath.Join(tmp, "lib")
 	home := filepath.Join(tmp, "home")
-	if err := os.MkdirAll(filepath.Join(home, ".config", "opencode"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(OpenCodeWriter{}.ConfigPath(home)), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(magic, 0o755); err != nil {
@@ -379,4 +379,22 @@ func mustProvider(t *testing.T, ctx Context, name string) catalog.Provider {
 		t.Fatalf("missing provider %s", name)
 	}
 	return p
+}
+
+// OpenCode reads $XDG_CONFIG_HOME, so its provider projection must land there
+// rather than in ~/.config: writing to a directory the harness does not read is
+// a silent no-op for the user.
+func TestOpenCodeConfigPathFollowsXDGConfigHome(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(t.TempDir(), "xdg-config")
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	if got, want := (OpenCodeWriter{}).ConfigPath(home), filepath.Join(xdg, "opencode", "opencode.json"); got != want {
+		t.Errorf("ConfigPath = %q, want %q", got, want)
+	}
+
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join("relative", "xdg-config"))
+	if got, want := (OpenCodeWriter{}).ConfigPath(home), filepath.Join(home, ".config", "opencode", "opencode.json"); got != want {
+		t.Errorf("relative XDG: ConfigPath = %q, want fallback %q", got, want)
+	}
 }

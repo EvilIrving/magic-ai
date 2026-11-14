@@ -83,3 +83,9 @@
 
 > **2026-09-13 确认**：D22–D25 均按建议执行，本轮不再推进（Roo 不做、Alma/Cola 不投、DSH MCP 暂缓）；
 > 除非用户后续主动提出。`dsh`/`craft`/`trae-agent` 等未完成项同理，见 [harness-rollout-plan.md](./harness-rollout-plan.md) §5/§9。
+
+## 十、apply 的写入范围
+
+| # | 决定 |
+|---|---|
+| D26 | **`magic apply` 默认只写已安装的 harness**：adapter 的 `Detect(userHome)` 命中才写，镜像树、`packs/skills`、`packs/agents`、共享 `packs/AGENTS.md`、provider、MCP 六处写入共用这一道门。`--only <id>` 显式指名时绕过，用于在新机器上先写配置（预装），再打开工具。`magic plan` 用同一个门：未安装且未被 `--only` 指名的 adapter 报 skipped（原因「未安装」），不算漂移。理由：不污染用户主目录（否则一台只装了 3 个工具的计算机会被造出另外 17 个工具目录）、与 `magic status`（D12）以及 provider / MCP 的探测语义保持一致。 |

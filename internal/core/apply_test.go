@@ -4,12 +4,70 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"magic/internal/adapter"
 	"magic/internal/adapters/pi"
+	"magic/internal/adapters/trae"
 	"magic/internal/backup"
 )
+
+// D26: apply writes only a harness the user home shows. An uninstalled adapter
+// gets no mirror tree, no skills, no sub-agents — and, because no earlier
+// projection creates its directory, the shared instruction source stays out too.
+// --only names it explicitly and is the way to pre-install one.
+func TestApplySkipsUninstalledHarness(t *testing.T) {
+	magicHome, userHome := t.TempDir(), t.TempDir()
+	writeFile(t, filepath.Join(magicHome, "packs", "harness", "trae", "foo.txt"), "library\n")
+	writeFile(t, filepath.Join(magicHome, "packs", "skills", "x", "SKILL.md"), "# x\n")
+	writeFile(t, filepath.Join(magicHome, "packs", "agents", "a.md"), "# a\n")
+	adapters := []adapter.Adapter{trae.New()}
+	opts := ApplyOptions{MagicHome: magicHome, UserHome: userHome}
+
+	logs, err := ApplyAdapter(trae.New(), opts, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(logs) != 1 || !strings.Contains(logs[0], "not detected") {
+		t.Fatalf("logs = %v, want one not-detected skip", logs)
+	}
+	if logs, err := ApplySkills(adapters, opts); err != nil {
+		t.Fatal(err)
+	} else if len(logs) != 0 {
+		t.Fatalf("skills logs = %v, want no projection", logs)
+	}
+	if logs, err := ApplyAgents(adapters, opts); err != nil {
+		t.Fatal(err)
+	} else if len(logs) != 0 {
+		t.Fatalf("agents logs = %v, want no projection", logs)
+	}
+	if _, err := os.Stat(filepath.Join(userHome, ".trae")); !os.IsNotExist(err) {
+		t.Fatalf("apply created ~/.trae for an uninstalled harness (err = %v)", err)
+	}
+
+	// --only names the harness: it is written even when not installed.
+	opts.Only = "trae"
+	if _, err := ApplyAdapter(trae.New(), opts, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(userHome, ".trae", "foo.txt")); got != "library\n" {
+		t.Fatalf("mirror target = %q, want the library content", got)
+	}
+	if _, err := ApplySkills(adapters, opts); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyAgents(adapters, opts); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(userHome, ".trae", "skills", "x")); err != nil {
+		t.Fatalf("--only did not project the skill: %v", err)
+	}
+	if got := readFile(t, filepath.Join(userHome, ".trae", "agents", "a.md")); got != "# a\n" {
+		t.Fatalf("--only sub-agent = %q, want the library content", got)
+	}
+}
 
 // An unchanged target keeps its inode, mtime and mode: apply really writes
 // nothing, which is what a plan's `unchanged` promises.

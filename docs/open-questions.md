@@ -71,6 +71,7 @@
 | C8 | `magic status` 只列已安装 harness（D12） | ✅ | `cmd/magic/main.go` |
 | C9 | `magic guide` / `--json`（桌面端 / 签名发行不在本仓库范围） | ✅ / ➖ | `cmd/magic/main.go`（guide、`status --json`、`adapters --json`）；桌面/签名为独立产品 |
 | C10 | MCP 写 Codex/Grok 的 TOML 是否复用 `internal/provider` 已有处理 | ✅ | 自写 `internal/mcp/toml.go`（`[mcp_servers.<name>]` 字段级 upsert，保留用户同表其它键）；D18 |
+| C11 | `hermes` / `mimocode` 在 `DefaultAgents` 里、不在 vercel 表里：默认 sync/status 现在按「表 → adapter 的 `SkillsDir`」回退解析（`internal/skills/paths.go: globalAgentDir`），但 `ParseAgents` 仍用 `KnownAgent`（只认表），所以 `--target hermes` 会被拒、`--target all` 不含它们 | ❓ 未定：要不要让 `KnownAgent` 也认 adapter 声明的 skills 目录（统一），还是保持「显式 `--target` 只认上游表」 | `internal/skills/paths.go`、`internal/skills/mesh.go` |
 
 ---
 

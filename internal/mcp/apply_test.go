@@ -206,10 +206,12 @@ func TestProjectYAMLPreservesConfigAndComments(t *testing.T) {
 
 func TestProjectMimoCodeUsesOpenCodeDialect(t *testing.T) {
 	home := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(home, ".config", "mimocode"), 0o755); err != nil {
+	xdg := filepath.Join(home, "xdg-config")
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	if err := os.MkdirAll(filepath.Join(xdg, "mimocode"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(home, ".config", "mimocode", "mimocode.json")
+	path := filepath.Join(xdg, "mimocode", "mimocode.json")
 	if err := os.WriteFile(path, []byte(`{"model":"mimo"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}

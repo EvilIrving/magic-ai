@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"magic/internal/appdir"
+	"magic/internal/registry"
 )
 
 // DefaultAgents are the agent skill sync targets used when none are given.
@@ -231,13 +234,52 @@ func AgentDotDir(agent string) (string, error) {
 	}
 }
 
-// GlobalTargetDir returns the harness skills directory for global scope.
+// GlobalTargetDir returns the harness skills directory for global scope. The
+// table above stays verbatim (D11); its .config/ entries are expanded through
+// $XDG_CONFIG_HOME here, at the single place the table is read.
 func GlobalTargetDir(agent, userHome string) (string, error) {
 	rel, ok := globalSkills[agent]
 	if !ok {
 		return "", fmt.Errorf("unknown agent %q (see magic skills sync --target all)", agent)
 	}
-	return filepath.Join(userHome, filepath.FromSlash(rel)), nil
+	return globalPath(userHome, rel), nil
+}
+
+// globalAgentDir resolves the global skills dir an agent is synced into.
+//
+// Order is fixed: the upstream table first, then the agent's own adapter.
+//   - Table first because D11 adopts vercel-labs/skills verbatim as fixed
+//     config; a table entry is never overridden by what an adapter says.
+//   - Adapter second because DefaultAgents names harnesses (hermes, mimocode)
+//     the upstream snapshot does not list, yet Magic does declare their skills
+//     dir — ~/.hermes/skills (internal/adapters/hermes/hermes.go, source:
+//     hermes_cli/config.py) and $XDG_CONFIG_HOME/mimocode/skills
+//     (internal/adapters/mimocode/mimocode.go, source: MiMo-Code
+//     packages/shared/src/global.ts). An adapter SkillsDir beats no answer.
+//
+// An id in neither is still an error, with GlobalTargetDir's wording.
+func globalAgentDir(agent, userHome string) (string, error) {
+	dir, err := GlobalTargetDir(agent, userHome)
+	if err == nil {
+		return dir, nil
+	}
+	if a, ok := registry.ByID(agent); ok {
+		if own := a.SkillsDir(userHome); own != "" {
+			return own, nil
+		}
+	}
+	return "", err
+}
+
+// globalPath expands one globalSkills-style $HOME-relative entry to an absolute
+// directory. Only .config/ entries move; every other entry is joined onto home.
+func globalPath(userHome, rel string) string {
+	// ExpandConfig leaves non-.config/ entries untouched, so an unchanged result
+	// means the entry is a plain $HOME-relative path.
+	if expanded := appdir.ExpandConfig(userHome, rel); expanded != rel {
+		return expanded
+	}
+	return filepath.Join(userHome, filepath.FromSlash(rel))
 }
 
 // ProjectTargetDir returns <project>/.{agent}/skills (project layout).

@@ -141,6 +141,9 @@ func TestVerifyMCPAfterApply(t *testing.T) {
 // and verify checks the file the switch and the MCP projection both write.
 func TestVerifyOpencodeProviderAfterApply(t *testing.T) {
 	magicHome, userHome := t.TempDir(), t.TempDir()
+	// opencode honors $XDG_CONFIG_HOME; pin it inside this test's home so the
+	// paths asserted below are the ones apply writes.
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(userHome, ".config"))
 	writeProviderFixture(t, magicHome)
 	writeFileAt(t, filepath.Join(magicHome, "packs", "harness", "opencode", "AGENTS.md"), "# OpenCode\n")
 	writeFileAt(t, filepath.Join(magicHome, "packs", "mcp", "mcp.yaml"), "mcp:\n  docs:\n    command: npx\n")

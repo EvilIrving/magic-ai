@@ -32,6 +32,7 @@ internal/sync/r2.go
 internal/catalog/catalog.go
 internal/catalog/project.go
 internal/core/merge.go
+internal/core/userinstructions.go
 internal/secrets/providers.go
 internal/provider/builtin/providers.yaml
 internal/adapter/adapter.go

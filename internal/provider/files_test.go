@@ -24,6 +24,10 @@ func writeFixture(t *testing.T, fx filesFixture) Context {
 	t.Helper()
 	clearHarnessHomeEnv(t)
 	magicHome, userHome := t.TempDir(), t.TempDir()
+	// The fixture paths below are user-home relative, so pin the XDG config home
+	// inside the fixture home: an inherited value would put the harnesses that
+	// honor XDG (opencode) somewhere the fixture does not seed.
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(userHome, ".config"))
 	for rel, content := range fx.files {
 		path := filepath.Join(userHome, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

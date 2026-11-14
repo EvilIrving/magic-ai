@@ -302,6 +302,10 @@ func TestRollbackLegacyBackupKeepsCreatedFiles(t *testing.T) {
 func TestListBackupsCountsManifestEntries(t *testing.T) {
 	magicHome, userHome := t.TempDir(), t.TempDir()
 	writeFile(t, filepath.Join(magicHome, "packs", "harness", "pi", "AGENTS.md"), "library\n")
+	// Apply only writes an installed harness, so the fixture has to show one.
+	if err := os.MkdirAll(filepath.Join(userHome, ".pi", "agent"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	backupDir, err := NewBackupDir(magicHome)
 	if err != nil {
 		t.Fatal(err)

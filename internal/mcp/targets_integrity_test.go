@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -9,6 +10,9 @@ import (
 // (Style + Format + TopKey + a Path inside the user home).
 // A wrong row writes an invalid config into a user's installed tool.
 func TestTargetsIntegrity(t *testing.T) {
+	// The invariant below is "inside the user home", which only holds when the
+	// XDG-aware rows fall back; the XDG case has its own test.
+	t.Setenv("XDG_CONFIG_HOME", "")
 	seen := map[string]bool{}
 	for _, tgt := range Targets() {
 		if tgt.Harness == "" {
@@ -96,5 +100,68 @@ func TestTranslateKeepsSecretEnvPlaintext(t *testing.T) {
 		if env["GH_TOKEN"] != "ghp-live-secret" {
 			t.Errorf("%s: secret must stay plaintext, got %v", style, env["GH_TOKEN"])
 		}
+	}
+}
+
+// The four harnesses whose own docs/source read $XDG_CONFIG_HOME must be
+// projected where they look, not where Magic used to write. The directory is
+// deliberately not created: an unset XDG dir is a cold start, not an invalid
+// config (internal/appdir).
+func TestTargetsFollowXDGConfigHome(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(t.TempDir(), "xdg-config")
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	t.Setenv("MIMOCODE_HOME", "")
+
+	cases := map[string]string{
+		"opencode": filepath.Join(xdg, "opencode", "opencode.json"),
+		"kilo":     filepath.Join(xdg, "kilo", "kilo.json"),
+		"zed":      filepath.Join(xdg, "zed", "settings.json"),
+		"mimocode": filepath.Join(xdg, "mimocode", "mimocode.json"),
+	}
+	for harness, want := range cases {
+		tgt, ok := TargetFor(harness)
+		if !ok {
+			t.Fatalf("%s: no target", harness)
+		}
+		if got := tgt.Path(home); got != want {
+			t.Errorf("%s: Path = %q, want %q", harness, got, want)
+		}
+	}
+}
+
+func TestTargetsFallBackToHomeConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("MIMOCODE_HOME", "")
+
+	cases := map[string]string{
+		"opencode": filepath.Join(home, ".config", "opencode", "opencode.json"),
+		"kilo":     filepath.Join(home, ".config", "kilo", "kilo.json"),
+		"zed":      filepath.Join(home, ".config", "zed", "settings.json"),
+		"mimocode": filepath.Join(home, ".config", "mimocode", "mimocode.json"),
+	}
+	for harness, want := range cases {
+		tgt, ok := TargetFor(harness)
+		if !ok {
+			t.Fatalf("%s: no target", harness)
+		}
+		if got := tgt.Path(home); got != want {
+			t.Errorf("%s: Path = %q, want %q", harness, got, want)
+		}
+	}
+}
+
+// MIMOCODE_HOME names the whole mimocode home, of which the config dir is one
+// child; it outranks the XDG config home, as in internal/adapters/mimocode.
+func TestMimoCodeTargetPrefersMimoCodeHome(t *testing.T) {
+	home := t.TempDir()
+	mimoHome := t.TempDir()
+	t.Setenv("MIMOCODE_HOME", mimoHome)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "xdg-config"))
+
+	tgt, _ := TargetFor("mimocode")
+	if got, want := tgt.Path(home), filepath.Join(mimoHome, "config", "mimocode.json"); got != want {
+		t.Errorf("Path = %q, want %q", got, want)
 	}
 }

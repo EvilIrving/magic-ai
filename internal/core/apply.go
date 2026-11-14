@@ -23,13 +23,23 @@ type ApplyOptions struct {
 	BackupDir string
 }
 
-// ApplyAdapter restores the mirrored custom tree for one adapter.
+// ApplyAdapter restores the mirrored custom tree for one adapter, then projects
+// the shared instruction source (packs/AGENTS.md) to the harness's user-level
+// instruction file.
 // Structured config files are field-level merged (decisions.md D5); the local
 // library copy is the final content (no secret placeholder reinjection).
+//
+// A harness the user home does not show (Detect) is left alone unless --only
+// names it: apply must not invent ~/.factory/ on a machine that never had
+// Droid, and provider / MCP / shared instructions use the same gate. --only is
+// the explicit way to pre-install a harness's config before the tool is opened.
 func ApplyAdapter(a adapter.Adapter, opts ApplyOptions, backupDir string) ([]string, error) {
 	var log []string
 	if !a.Implemented() {
 		return []string{fmt.Sprintf("[%s] skipped (not implemented)", a.ID())}, nil
+	}
+	if !a.Detect(opts.UserHome) && opts.Only != string(a.ID()) {
+		return []string{fmt.Sprintf("[%s] skipped (not detected)", a.ID())}, nil
 	}
 	srcRoot := filepath.Join(opts.MagicHome, a.LibraryMirrorRel())
 	dstRoot := a.MirrorRoot(opts.UserHome)
@@ -37,12 +47,38 @@ func ApplyAdapter(a adapter.Adapter, opts ApplyOptions, backupDir string) ([]str
 		return log, nil
 	}
 	st, err := os.Stat(srcRoot)
-	if err != nil || !st.IsDir() {
+	mirrorMissing := err != nil || !st.IsDir()
+	if mirrorMissing {
 		log = append(log, fmt.Sprintf("[%s] no library mirror at %s", a.ID(), srcRoot))
+	} else if err := walkMirror(a, opts, backupDir, srcRoot, dstRoot, &log); err != nil {
+		return log, err
+	}
+
+	// The shared instruction source is not a mirrored file, so it is projected
+	// whether or not the library holds a mirror tree for this adapter.
+	sharedLogs, err := applySharedInstructions(a, opts, backupDir)
+	if err != nil {
+		return log, err
+	}
+	log = append(log, sharedLogs...)
+	if mirrorMissing {
 		return log, nil
 	}
 
-	err = filepath.WalkDir(srcRoot, func(path string, d fs.DirEntry, err error) error {
+	// Claude: merge partial json config keys into ~/.claude.json (non-destructive merge of extracted keys)
+	if a.ID() == "claude" {
+		extra, err := applyClaudePartial(opts, backupDir)
+		if err != nil {
+			return log, err
+		}
+		log = append(log, extra...)
+	}
+	return log, nil
+}
+
+// walkMirror restores the library mirror tree of one adapter, file by file.
+func walkMirror(a adapter.Adapter, opts ApplyOptions, backupDir, srcRoot, dstRoot string, log *[]string) error {
+	return filepath.WalkDir(srcRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
@@ -69,22 +105,9 @@ func ApplyAdapter(a adapter.Adapter, opts ApplyOptions, backupDir string) ([]str
 				return err
 			}
 		}
-		log = append(log, fmt.Sprintf("[%s] restore %s", a.ID(), rel))
+		*log = append(*log, fmt.Sprintf("[%s] restore %s", a.ID(), rel))
 		return nil
 	})
-	if err != nil {
-		return log, err
-	}
-
-	// Claude: merge partial json config keys into ~/.claude.json (non-destructive merge of extracted keys)
-	if a.ID() == "claude" {
-		extra, err := applyClaudePartial(opts, backupDir)
-		if err != nil {
-			return log, err
-		}
-		log = append(log, extra...)
-	}
-	return log, nil
 }
 
 // recordWrite adds one target to the backup set's manifest. An existing target is
@@ -112,6 +135,7 @@ func recordWrite(backupDir string, id adapter.ID, rel, target string, mode os.Fi
 }
 
 // ApplySkills projects $MAGIC_HOME/packs/skills to all Caps.Skills adapters.
+// Only an installed harness (Detect) is projected, unless --only names it.
 func ApplySkills(adapters []adapter.Adapter, opts ApplyOptions) ([]string, error) {
 	central := skills.CentralDir(opts.MagicHome)
 	var dirs []string
@@ -122,6 +146,9 @@ func ApplySkills(adapters []adapter.Adapter, opts ApplyOptions) ([]string, error
 		if opts.Only != "" && string(a.ID()) != opts.Only {
 			continue
 		}
+		if !a.Detect(opts.UserHome) && opts.Only != string(a.ID()) {
+			continue
+		}
 		if d := a.SkillsDir(opts.UserHome); d != "" {
 			dirs = append(dirs, d)
 		}
@@ -130,6 +157,7 @@ func ApplySkills(adapters []adapter.Adapter, opts ApplyOptions) ([]string, error
 }
 
 // ApplyAgents projects packs/agents sub-agent defs to Caps.Agents harnesses.
+// Only an installed harness (Detect) is projected, unless --only names it.
 func ApplyAgents(adapters []adapter.Adapter, opts ApplyOptions) ([]string, error) {
 	lib := filepath.Join(opts.MagicHome, "packs", "agents")
 	var dirs []string
@@ -138,6 +166,9 @@ func ApplyAgents(adapters []adapter.Adapter, opts ApplyOptions) ([]string, error
 			continue
 		}
 		if opts.Only != "" && string(a.ID()) != opts.Only {
+			continue
+		}
+		if !a.Detect(opts.UserHome) && opts.Only != string(a.ID()) {
 			continue
 		}
 		if d := a.AgentsDir(opts.UserHome); d != "" {
