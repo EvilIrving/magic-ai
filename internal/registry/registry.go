@@ -7,10 +7,13 @@ import (
 	"magic/internal/adapters/cline"
 	"magic/internal/adapters/codex"
 	"magic/internal/adapters/copilot"
+	"magic/internal/adapters/craft"
 	"magic/internal/adapters/cursor"
 	"magic/internal/adapters/dimagent"
 	"magic/internal/adapters/droid"
+	"magic/internal/adapters/dsh"
 	"magic/internal/adapters/gemini"
+	"magic/internal/adapters/goose"
 	"magic/internal/adapters/grok"
 	"magic/internal/adapters/hermes"
 	"magic/internal/adapters/iflow"
@@ -19,6 +22,7 @@ import (
 	"magic/internal/adapters/kiro"
 	"magic/internal/adapters/mcpuser"
 	"magic/internal/adapters/mimocode"
+	"magic/internal/adapters/mmx"
 	"magic/internal/adapters/omp"
 	"magic/internal/adapters/openclaw"
 	"magic/internal/adapters/opencode"
@@ -26,6 +30,8 @@ import (
 	"magic/internal/adapters/qoder"
 	"magic/internal/adapters/qwencode"
 	"magic/internal/adapters/trae"
+	"magic/internal/adapters/vibe"
+	"magic/internal/adapters/vscode"
 	"magic/internal/adapters/workbuddy"
 	"magic/internal/adapters/zcode"
 	"magic/internal/adapters/zed"
@@ -63,6 +69,12 @@ func init() {
 		mimocode.New(),
 		dimagent.New(),
 		openclaw.New(),
+		dsh.New(),
+		mmx.New(),
+		craft.New(),
+		vscode.New(),
+		goose.New(),
+		vibe.New(),
 	}
 }
 

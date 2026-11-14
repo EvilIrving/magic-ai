@@ -124,7 +124,7 @@ func TestPiApplyEnrichesModelsJSON(t *testing.T) {
 	ctx := Context{MagicHome: magic, UserHome: home, Catalog: f}
 	w := PiWriter{}
 	req := ApplyRequest{Name: "shu", Provider: f.Providers["shu"], Endpoint: f.Providers["shu"].Endpoints[0]}
-	if _, err := w.Apply(ctx, req); err != nil {
+	if _, err := ApplyFiles(ctx, w, req); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(w.ConfigPath(home))

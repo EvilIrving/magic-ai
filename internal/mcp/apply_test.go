@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"magic/internal/backup"
 )
 
 func TestProjectJSONPreservesUserEntries(t *testing.T) {
@@ -17,7 +19,7 @@ func TestProjectJSONPreservesUserEntries(t *testing.T) {
 		"context7": {Command: "npx", Args: []string{"-y", "pkg"}, Env: map[string]string{"K": "v"}},
 	}}
 	tgt, _ := TargetFor("claude")
-	logs, err := Project(tgt, home, f, false, "")
+	logs, err := Project(tgt, home, "", f, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +55,7 @@ func TestProjectTOMLPreservesConfig(t *testing.T) {
 	}
 	f := &File{MCP: map[string]Server{"ctx": {Command: "npx"}}}
 	tgt, _ := TargetFor("codex")
-	if _, err := Project(tgt, home, f, false, ""); err != nil {
+	if _, err := Project(tgt, home, "", f, false, ""); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
@@ -71,7 +73,7 @@ func TestProjectSkipsDisabledWithoutEnabledField(t *testing.T) {
 	off := false
 	f := &File{MCP: map[string]Server{"x": {Command: "c", Enabled: &off}}}
 	tgt, _ := TargetFor("claude")
-	logs, err := Project(tgt, home, f, false, "")
+	logs, err := Project(tgt, home, "", f, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +89,7 @@ func TestProjectPiRemoteSkipped(t *testing.T) {
 	home := t.TempDir()
 	f := &File{MCP: map[string]Server{"remote": {Transport: "http", URL: "https://x"}}}
 	tgt, _ := TargetFor("pi")
-	logs, err := Project(tgt, home, f, false, "")
+	logs, err := Project(tgt, home, "", f, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +127,7 @@ func TestProjectZCodeNestedKey(t *testing.T) {
 	}
 	f := &File{MCP: map[string]Server{"ctx": {Command: "npx"}}}
 	tgt, _ := TargetFor("zcode")
-	if _, err := Project(tgt, home, f, false, ""); err != nil {
+	if _, err := Project(tgt, home, "", f, false, ""); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(filepath.Join(home, ".zcode", "cli", "config.json"))
@@ -183,7 +185,7 @@ func TestProjectYAMLPreservesConfigAndComments(t *testing.T) {
 	}
 	f := &File{MCP: map[string]Server{"ctx": {Command: "npx", Args: []string{"-y", "pkg"}}}}
 	tgt, _ := TargetFor("hermes")
-	if _, err := Project(tgt, home, f, false, ""); err != nil {
+	if _, err := Project(tgt, home, "", f, false, ""); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(path)
@@ -213,7 +215,7 @@ func TestProjectMimoCodeUsesOpenCodeDialect(t *testing.T) {
 	}
 	f := &File{MCP: map[string]Server{"ctx": {Command: "npx", Args: []string{"-y", "pkg"}}}}
 	tgt, _ := TargetFor("mimocode")
-	if _, err := Project(tgt, home, f, false, ""); err != nil {
+	if _, err := Project(tgt, home, "", f, false, ""); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(path)
@@ -238,7 +240,7 @@ func TestProjectDimAgentSkipsSSE(t *testing.T) {
 		"bad": {Transport: "sse", URL: "https://x/sse"},
 	}}
 	tgt, _ := TargetFor("dimagent")
-	logs, err := Project(tgt, home, f, false, "")
+	logs, err := Project(tgt, home, "", f, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +280,7 @@ func TestProjectOpenClawLeavesJSON5Untouched(t *testing.T) {
 	}
 	f := &File{MCP: map[string]Server{"ctx": {Command: "npx"}}}
 	tgt, _ := TargetFor("openclaw")
-	logs, err := Project(tgt, home, f, false, "")
+	logs, err := Project(tgt, home, "", f, false, "")
 	if err != nil {
 		t.Fatalf("lenient projection must not error: %v", err)
 	}
@@ -301,7 +303,7 @@ func TestProjectOpenClawWritesPlainJSON(t *testing.T) {
 	home := t.TempDir()
 	f := &File{MCP: map[string]Server{"ctx": {Command: "npx", Args: []string{"-y", "pkg"}}}}
 	tgt, _ := TargetFor("openclaw")
-	if _, err := Project(tgt, home, f, false, ""); err != nil {
+	if _, err := Project(tgt, home, "", f, false, ""); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(filepath.Join(home, ".openclaw", "openclaw.json"))
@@ -312,5 +314,208 @@ func TestProjectOpenClawWritesPlainJSON(t *testing.T) {
 	mcp, _ := root["mcp"].(map[string]any)
 	if _, ok := mcp["servers"].(map[string]any)["ctx"]; !ok {
 		t.Fatalf("nested mcp.servers entry missing: %v", root)
+	}
+}
+
+// The backup entry keeps the target's position under the harness's mirror root,
+// so Kiro's settings/mcp.json is restored to settings/mcp.json, not to a flat
+// mcp.json at the root.
+func TestProjectRecordsManifestWithSubdirectory(t *testing.T) {
+	home := t.TempDir()
+	mirrorRoot := filepath.Join(home, ".kiro")
+	target := filepath.Join(mirrorRoot, "settings", "mcp.json")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const original = `{"mcpServers":{"mine":{"command":"x"}}}`
+	if err := os.WriteFile(target, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	backupDir := filepath.Join(t.TempDir(), "20260101T000000Z")
+
+	f := &File{MCP: map[string]Server{"ctx": {Command: "npx"}}}
+	tgt, _ := TargetFor("kiro")
+	if _, err := Project(tgt, home, mirrorRoot, f, false, backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := backup.Read(backupDir)
+	if err != nil || m == nil {
+		t.Fatalf("manifest = %+v err=%v", m, err)
+	}
+	if len(m.Entries) != 1 {
+		t.Fatalf("entries = %+v", m.Entries)
+	}
+	e := m.Entries[0]
+	if e.Adapter != "kiro" || e.Rel != filepath.Join("settings", "mcp.json") || e.Action != backup.ActionUpdate {
+		t.Fatalf("entry = %+v", e)
+	}
+	if e.Backup != filepath.Join("kiro", "settings", "mcp.json") {
+		t.Fatalf("backup = %q, want the subdirectory preserved", e.Backup)
+	}
+	raw, err := os.ReadFile(filepath.Join(backupDir, e.Backup))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != original {
+		t.Fatalf("backup = %q, want the pre-projection content", raw)
+	}
+}
+
+// A projection that creates the file records a create entry, so rollback can
+// delete it.
+func TestProjectRecordsCreateEntry(t *testing.T) {
+	home := t.TempDir()
+	backupDir := filepath.Join(t.TempDir(), "20260101T000000Z")
+
+	f := &File{MCP: map[string]Server{"ctx": {Command: "npx"}}}
+	tgt, _ := TargetFor("pi")
+	if _, err := Project(tgt, home, filepath.Join(home, ".pi", "agent"), f, false, backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := backup.Read(backupDir)
+	if err != nil || m == nil {
+		t.Fatalf("manifest = %+v err=%v", m, err)
+	}
+	if len(m.Entries) != 1 {
+		t.Fatalf("entries = %+v", m.Entries)
+	}
+	if e := m.Entries[0]; e.Action != backup.ActionCreate || e.Backup != "" {
+		t.Fatalf("entry = %+v, want create without a copy", e)
+	}
+}
+
+// ~/.claude.json lives outside Claude's mirror root; both writers must record the
+// same name so one target has one manifest entry.
+func TestProjectClaudeJSONUsesApplyName(t *testing.T) {
+	home := t.TempDir()
+	backupDir := filepath.Join(t.TempDir(), "20260101T000000Z")
+	target := filepath.Join(home, ".claude.json")
+	if err := os.WriteFile(target, []byte(`{"projects":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f := &File{MCP: map[string]Server{"ctx": {Command: "npx"}}}
+	tgt, _ := TargetFor("claude")
+	if _, err := Project(tgt, home, filepath.Join(home, ".claude"), f, false, backupDir); err != nil {
+		t.Fatal(err)
+	}
+	m, err := backup.Read(backupDir)
+	if err != nil || m == nil {
+		t.Fatalf("manifest = %+v err=%v", m, err)
+	}
+	if len(m.Entries) != 1 || m.Entries[0].Rel != backup.ClaudeJSONRel {
+		t.Fatalf("entries = %+v, want rel %q", m.Entries, backup.ClaudeJSONRel)
+	}
+	if m.Entries[0].Backup != filepath.Join("claude", backup.ClaudeJSONRel) {
+		t.Fatalf("backup = %q", m.Entries[0].Backup)
+	}
+}
+
+// ProjectBytes is what plan calls, so it must return exactly the bytes Project
+// writes — for every dialect, and without touching the target.
+func TestProjectBytesMatchesProject(t *testing.T) {
+	f := &File{MCP: map[string]Server{"ctx": {Command: "npx", Args: []string{"-y", "pkg"}}}}
+	cases := []struct {
+		harness  string
+		existing string
+	}{
+		{"claude", `{"mcpServers":{"mine":{"command":"x"}},"theme":"dark"}`},
+		{"codex", "model_provider = \"openai\"\n\n[mcp_servers.user]\ncommand = \"u\"\n"},
+		{"hermes", "# Hermes config\nmodel: nous\n\ntelemetry: false\n"},
+		{"zcode", `{"theme":"dark"}`},
+		{"openclaw", `{"gateway":{"port":1}}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.harness, func(t *testing.T) {
+			tgt, ok := TargetFor(tc.harness)
+			if !ok {
+				t.Fatalf("no target for %s", tc.harness)
+			}
+			planned, applied := t.TempDir(), t.TempDir()
+			for _, home := range []string{planned, applied} {
+				path := tgt.Path(home)
+				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(tc.existing), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			path, out, entries, err := ProjectBytes(tgt, planned, f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if entries != 1 {
+				t.Fatalf("entries = %d, want 1", entries)
+			}
+			if got, _ := os.ReadFile(tgt.Path(planned)); string(got) != tc.existing {
+				t.Fatalf("ProjectBytes wrote to the target:\n%s", got)
+			}
+			if _, err := Project(tgt, applied, "", f, false, ""); err != nil {
+				t.Fatal(err)
+			}
+			if path != tgt.Path(planned) {
+				t.Fatalf("ProjectBytes path = %s, want %s", path, tgt.Path(planned))
+			}
+			wrote, err := os.ReadFile(tgt.Path(applied))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(out) != string(wrote) {
+				t.Fatalf("ProjectBytes out != apply output\n--- plan ---\n%s\n--- apply ---\n%s", out, wrote)
+			}
+		})
+	}
+}
+
+// A lenient target that is not plain JSON has nothing to write: out is nil so
+// plan reports no change instead of inventing one.
+func TestProjectBytesNilForUntouchedLenientJSON(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".openclaw", "openclaw.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const original = "{\n  gateway: { port: 1 },\n}\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tgt, _ := TargetFor("openclaw")
+	f := &File{MCP: map[string]Server{"ctx": {Command: "npx"}}}
+	_, out, entries, err := ProjectBytes(tgt, home, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entries != 1 || out != nil {
+		t.Fatalf("entries = %d out = %q, want one server and no write", entries, out)
+	}
+}
+
+// MergeProjection merges into the bytes a previous layer left, not into the
+// file on disk: that is how plan stacks layers.
+func TestMergeProjectionUsesGivenLayerOutput(t *testing.T) {
+	home := t.TempDir()
+	tgt, _ := TargetFor("claude")
+	f := &File{MCP: map[string]Server{"ctx": {Command: "npx"}}}
+	// The target is missing on disk; the previous layer's output stands in for it.
+	out, err := MergeProjection(tgt, tgt.Path(home), f, []byte(`{"mcpServers":{"mine":{"command":"x"}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var root map[string]any
+	if err := json.Unmarshal(out, &root); err != nil {
+		t.Fatalf("out is not JSON: %v\n%s", err, out)
+	}
+	servers, _ := root["mcpServers"].(map[string]any)
+	if _, ok := servers["mine"]; !ok {
+		t.Fatalf("the previous layer's entries were dropped:\n%s", out)
+	}
+	if _, ok := servers["ctx"]; !ok {
+		t.Fatalf("the new server is missing:\n%s", out)
+	}
+	if _, err := os.Stat(tgt.Path(home)); !os.IsNotExist(err) {
+		t.Fatalf("MergeProjection wrote the target (stat err = %v)", err)
 	}
 }

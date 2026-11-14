@@ -29,7 +29,10 @@
 # Providers whose only dialect is Google Generative AI / Mistral Conversations /
 # Bedrock are intentionally absent until Magic grows those dialects.
 #
-# Relays / gateways are user-defined and must not appear in this file.
+# Relays / gateways are user-defined and stay out of this file, with two shipped
+# exceptions — OpenRouter and Vercel AI Gateway — because they are the common way
+# to reach many vendors through one key. Every other relay belongs in the user's
+# own $MAGIC_HOME/providers.yaml.
 # Sources for official entries: vendor docs; cross-checked against Pi's shipped
 # provider catalog (@earendil-works/pi-ai dist/providers/*.js) and models.dev.
 #
@@ -39,7 +42,8 @@ version: 2
 
 providers:
 
-  # Relays / gateways are user-defined. Do not ship them here.
+  # Relays / gateways are user-defined and stay out of this file, except the two
+  # shipped defaults named above (OpenRouter, Vercel AI Gateway).
   # Put custom endpoints in $MAGIC_HOME/providers.yaml.
 
   # ---------------------------------------------------------------------------

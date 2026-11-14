@@ -1,0 +1,224 @@
+{
+  "version": 1,
+  "magic_home": "<magic-home>",
+  "user_home": "<user-home>",
+  "adapters": [
+    {
+      "adapter": "claude",
+      "changes": [
+        {
+          "adapter": "claude",
+          "path": "<user-home>/.claude.json",
+          "rel": "_claude.json",
+          "action": "update",
+          "reason": "claude partial 深合并 → mcp 投影",
+          "mode": "0600",
+          "before": "sha256:a4a3ad3d34d5",
+          "after": "sha256:d1ba469713c8",
+          "backup": true,
+          "keys": [
+            {
+              "key": "mcpServers.docs.args",
+              "op": "add"
+            },
+            {
+              "key": "mcpServers.docs.command",
+              "op": "add"
+            },
+            {
+              "key": "projects",
+              "op": "keep"
+            }
+          ]
+        },
+        {
+          "adapter": "claude",
+          "path": "<user-home>/.claude/settings.json",
+          "rel": "settings.json",
+          "action": "update",
+          "reason": "镜像 JSON 合并 → provider 投影 env",
+          "mode": "0600",
+          "before": "sha256:aa023373b963",
+          "after": "sha256:0f994c9d63c2",
+          "backup": true,
+          "keys": [
+            {
+              "key": "env.ANTHROPIC_API_KEY",
+              "op": "add"
+            },
+            {
+              "key": "env.ANTHROPIC_AUTH_TOKEN",
+              "op": "overwrite"
+            },
+            {
+              "key": "env.ANTHROPIC_BASE_URL",
+              "op": "add"
+            },
+            {
+              "key": "env.ANTHROPIC_DEFAULT_HAIKU_MODEL",
+              "op": "add"
+            },
+            {
+              "key": "env.ANTHROPIC_DEFAULT_OPUS_MODEL",
+              "op": "add"
+            },
+            {
+              "key": "env.ANTHROPIC_DEFAULT_SONNET_MODEL",
+              "op": "add"
+            },
+            {
+              "key": "env.ANTHROPIC_MODEL",
+              "op": "add"
+            },
+            {
+              "key": "env.CLAUDE_CODE_SUBAGENT_MODEL",
+              "op": "add"
+            },
+            {
+              "key": "statusLine",
+              "op": "keep"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "adapter": "codex",
+      "changes": [
+        {
+          "adapter": "codex",
+          "path": "<user-home>/.codex/config.toml",
+          "rel": "config.toml",
+          "action": "update",
+          "reason": "镜像 TOML 合并 → mcp 投影",
+          "mode": "0600",
+          "before": "sha256:969c7d8df1c3",
+          "after": "sha256:7e6248f70fbe",
+          "backup": true,
+          "lines": {
+            "added": 6,
+            "removed": 1
+          }
+        }
+      ]
+    },
+    {
+      "adapter": "nope",
+      "skipped": "adapter 未实现"
+    },
+    {
+      "adapter": "pi",
+      "changes": [
+        {
+          "adapter": "pi",
+          "path": "<user-home>/.pi/agent/AGENTS.md",
+          "rel": "AGENTS.md",
+          "action": "create",
+          "reason": "镜像新建",
+          "mode": "0644",
+          "after": "sha256:f895f32a48d8"
+        },
+        {
+          "adapter": "pi",
+          "path": "<user-home>/.pi/agent/mcp.json",
+          "rel": "mcp.json",
+          "action": "create",
+          "reason": "mcp 投影",
+          "mode": "0600",
+          "after": "sha256:a4b1fd76f96b",
+          "keys": [
+            {
+              "key": "mcpServers.docs.args",
+              "op": "add"
+            },
+            {
+              "key": "mcpServers.docs.command",
+              "op": "add"
+            },
+            {
+              "key": "mcpServers.docs.disabled",
+              "op": "add"
+            }
+          ]
+        },
+        {
+          "adapter": "pi",
+          "path": "<user-home>/.pi/agent/models.json",
+          "rel": "models.json",
+          "action": "update",
+          "reason": "镜像整文件覆盖 → provider 投影 models.json",
+          "mode": "0600",
+          "before": "sha256:c30d3a63c009",
+          "after": "sha256:7f644d12b954",
+          "backup": true,
+          "keys": [
+            {
+              "key": "providers.kimi.api",
+              "op": "overwrite"
+            },
+            {
+              "key": "providers.magic-deepseek.api",
+              "op": "add"
+            },
+            {
+              "key": "providers.magic-deepseek.apiKey",
+              "op": "add"
+            },
+            {
+              "key": "providers.magic-deepseek.baseUrl",
+              "op": "add"
+            },
+            {
+              "key": "providers.magic-deepseek.models",
+              "op": "add"
+            }
+          ]
+        },
+        {
+          "adapter": "pi",
+          "path": "<user-home>/.pi/agent/models.magic.json",
+          "rel": "models.magic.json",
+          "action": "create",
+          "reason": "provider 投影 models.magic.json",
+          "mode": "0600",
+          "after": "sha256:4b784165a420",
+          "keys": [
+            {
+              "key": "providers.magic-deepseek.api",
+              "op": "add"
+            },
+            {
+              "key": "providers.magic-deepseek.apiKey",
+              "op": "add"
+            },
+            {
+              "key": "providers.magic-deepseek.baseUrl",
+              "op": "add"
+            },
+            {
+              "key": "providers.magic-deepseek.models",
+              "op": "add"
+            }
+          ]
+        },
+        {
+          "adapter": "pi",
+          "path": "<user-home>/.pi/agent/themes/dark.json",
+          "rel": "themes/dark.json",
+          "action": "unchanged",
+          "reason": "镜像整文件覆盖（结果与磁盘一致）",
+          "mode": "0644",
+          "before": "sha256:a143b7d0d534",
+          "after": "sha256:a143b7d0d534"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "files": 8,
+    "create": 3,
+    "update": 4,
+    "delete": 0,
+    "unchanged": 1
+  }
+}

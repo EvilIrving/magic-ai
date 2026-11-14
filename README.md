@@ -73,6 +73,9 @@ magic skills sync --scope project
 | `magic guide` | print the getting-started sequence (`--json`) |
 | `magic adapters` | supported harnesses and their skills / sub-agent / MCP capabilities |
 | `magic apply` | write the library into each harness (`--dry-run`, `--only pi`) |
+| `magic plan` | what apply would write: create / update / delete / unchanged, per-key and per-line diffs (`--json`, `--only pi`; read-only) |
+| `magic verify` | drift check between library and targets; exit code 1 on drift, on an empty check, or on skipped adapters (read-only) |
+| `magic rollback` | undo one apply from `backups/<stamp>/manifest.json` (`--list`, `--dry-run`, `--force`) |
 | `magic skills sync` | global skills; add `--scope project` for a repo |
 | `magic skills status` | per-harness linked / missing / conflict / stale (read-only) |
 | `magic agents` | sub-agents in the library, and which harnesses support them |

@@ -40,21 +40,19 @@ func opencodeProviderID(name string) string {
 	return opencodeMagicPrefix + strings.TrimSpace(name)
 }
 
-func (w OpenCodeWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
+// Files projects the resolved selection into ~/.config/opencode/opencode.json:
+// one Magic-managed provider block plus the default model, or the managed
+// entries removed for none.
+func (w OpenCodeWriter) Files(ctx Context, req ApplyRequest) ([]FileWrite, error) {
 	path := w.ConfigPath(ctx.UserHome)
-	raw, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return "", err
-	}
-	bak, err := CreateBackup(ctx.MagicHome, HarnessOpenCode, path, "opencode", ".json")
+	raw, err := readTarget(ctx, path)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
 	root := map[string]any{}
 	if len(raw) > 0 {
 		if err := json.Unmarshal(secrets.StripJSONC(raw), &root); err != nil {
-			return "", fmt.Errorf("parse opencode.json: %w", err)
+			return nil, fmt.Errorf("parse opencode.json: %w", err)
 		}
 	}
 	if req.Official {
@@ -104,23 +102,10 @@ func (w OpenCodeWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
 	}
 	out, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	out = append(out, '\n')
-	if err := atomicWrite(path, out, 0o600); err != nil {
-		return "", err
-	}
-	var b strings.Builder
-	if bak != "" {
-		fmt.Fprintf(&b, "Backup: %s\n", bak)
-	}
-	if req.Official {
-		b.WriteString("OpenCode: cleared Magic-managed provider.* / model (none — OpenCode is multi-provider).\n")
-	} else {
-		fmt.Fprintf(&b, "OpenCode: provider %s baseURL=%s model=%v\n",
-			opencodeProviderID(req.Name), req.Endpoint.BaseURL, root["model"])
-	}
-	return b.String(), nil
+	return []FileWrite{{Path: path, Data: out, Mode: 0o600, Role: RoleProviderBlock}}, nil
 }
 
 func clearOpenCodeMagic(root map[string]any) {

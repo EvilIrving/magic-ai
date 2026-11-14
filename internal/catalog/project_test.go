@@ -2,71 +2,9 @@ package catalog
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
-
-func TestUpsertClaudeSettingsPreservesUnrelated(t *testing.T) {
-	existing := []byte(`{
-  "permissions": {"allow": ["Bash"]},
-  "hooks": {"PreToolUse": []},
-  "env": {
-    "KEEP_ME": "yes",
-    "ANTHROPIC_BASE_URL": "https://old.example"
-  }
-}
-`)
-	env := ClaudeSettingsEnv(Endpoint{BaseURL: "https://api.shu.cool", Protocol: ProtocolAnthropicMessages}, "sk-SECRET-TOKEN99")
-	out, err := UpsertClaudeSettingsJSON(existing, env)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var root map[string]any
-	if err := json.Unmarshal(out, &root); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := root["permissions"]; !ok {
-		t.Fatal("permissions wiped")
-	}
-	if _, ok := root["hooks"]; !ok {
-		t.Fatal("hooks wiped")
-	}
-	envObj := root["env"].(map[string]any)
-	if envObj["KEEP_ME"] != "yes" {
-		t.Fatalf("KEEP_ME lost: %v", envObj)
-	}
-	if envObj[ClaudeEnvBaseURL] != "https://api.shu.cool" {
-		t.Fatalf("base url: %v", envObj[ClaudeEnvBaseURL])
-	}
-	if envObj[ClaudeEnvAuthToken] != "sk-SECRET-TOKEN99" {
-		t.Fatalf("auth token: %v", envObj[ClaudeEnvAuthToken])
-	}
-	if envObj[ClaudeEnvAPIKey] != "sk-SECRET-TOKEN99" {
-		t.Fatalf("api key compat: %v", envObj[ClaudeEnvAPIKey])
-	}
-
-	dir := t.TempDir()
-	home := dir
-	_ = os.MkdirAll(filepath.Join(home, ".claude"), 0o755)
-	path, _, err := WriteClaudeSettings(home, env, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	st, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if st.Mode().Perm()&0o077 != 0 {
-		// allow 0600 exactly preferred; some FS mask — at least not world-readable ideal
-		t.Logf("mode=%v", st.Mode())
-	}
-	raw, _ := os.ReadFile(path)
-	if !strings.Contains(string(raw), "ANTHROPIC_BASE_URL") {
-		t.Fatalf("%s", raw)
-	}
-}
 
 func TestMergePiModelsSmoke(t *testing.T) {
 	existing := []byte(`{"providers":{"keep-me":{"baseUrl":"https://x","api":"openai-completions","apiKey":"$X","models":[]}}}`)
@@ -101,13 +39,7 @@ func TestMergePiModelsSmoke(t *testing.T) {
 		t.Fatalf("pi must carry the real key (D3), got %v", magic["apiKey"])
 	}
 
-	home := t.TempDir()
-	path, err := WritePiModels(home, "magic-shu", entry, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, _ := os.ReadFile(path)
-	if !strings.Contains(string(raw), "sk-real-pi-key") {
-		t.Fatalf("plaintext key missing: %s", raw)
+	if !strings.Contains(string(out), "sk-real-pi-key") {
+		t.Fatalf("plaintext key missing: %s", out)
 	}
 }

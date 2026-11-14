@@ -73,6 +73,9 @@ magic skills sync --scope project
 | `magic guide` | 打印上手顺序（`--json`） |
 | `magic adapters` | 支持哪些 harness，各自有没有 skill / 子代理 / MCP |
 | `magic apply` | 把库写进各 harness（可 `--dry-run` / `--only pi`） |
+| `magic plan` | 动手前看 apply 会写什么：create / update / delete / unchanged，加键级与行级差异（`--json` / `--only pi`，只读） |
+| `magic verify` | 检查库与本机配置的漂移；漂移、空检查、被跳过的 adapter 都返回退出码 1（只读） |
+| `magic rollback` | 按 `backups/<时间戳>/manifest.json` 退回一次 apply（`--list` / `--dry-run` / `--force`） |
 | `magic skills sync` | 全局 skill；项目级加 `--scope project` |
 | `magic skills status` | 每个 harness 的已链接 / 缺失 / 冲突 / 失效（只读） |
 | `magic agents` | 配置库里的子代理，以及哪些 harness 支持 |

@@ -87,7 +87,9 @@ Skills 目标含 `cursor` 等全量路径表；v1 核心 harness 见 [supported-
 
 ## Provider 切换
 
-方言已实现：**Claude、Codex、Grok、Pi、OpenCode、WorkBuddy**。
+方言已实现：**Claude、Codex、Grok、Pi、OpenCode、WorkBuddy、Kimi Code、Vibe、Hermes、Oh My Pi、Droid**。
+`cline` / `qoder` / `zcode` / `mmx` 是 stub（没有一手核实、且 Magic 可写的 provider 方言，理由见
+`internal/provider/stubdialects.go`）。
 
 ```bash
 magic provider seed

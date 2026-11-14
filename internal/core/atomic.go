@@ -19,18 +19,6 @@ func secretBearingName(rel string) bool {
 	return ext == ".env" || ext == ".toml"
 }
 
-// AtomicWriteFile writes data via temp + rename.
-func AtomicWriteFile(path string, data []byte, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	tmp := path + ".tmp." + filepath.Base(path)
-	if err := os.WriteFile(tmp, data, mode); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
-}
-
 // CopyFile copies src → dst (creates parent dirs).
 func CopyFile(src, dst string) error {
 	in, err := os.Open(src)
@@ -61,10 +49,4 @@ func CopyFile(src, dst string) error {
 		return closeErr
 	}
 	return os.Rename(tmp, dst)
-}
-
-// BackupPath copies existing path into backupDir preserving rel structure.
-func BackupPath(absPath, backupDir, rel string) error {
-	dst := filepath.Join(backupDir, rel)
-	return CopyFile(absPath, dst)
 }

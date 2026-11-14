@@ -1,37 +1,79 @@
 package core
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-// mergeJSONObjects must never delete user keys the library doesn't mention,
-// and must signal "skip" (ok=false) instead of failing when the destination
-// is missing or unparsable — apply treats that as "write another way".
-func TestMergeJSONMissingDstSkips(t *testing.T) {
-	_, ok, err := mergeJSONObjects([]byte(`{"a":1}`), filepath.Join(t.TempDir(), "nope.json"))
-	if err != nil || ok {
-		t.Fatalf("missing dst: ok=%v err=%v, want ok=false err=nil", ok, err)
+// projectBytes must signal the whole-file fallback instead of merging when the
+// destination is not plain JSON — apply then writes the library bytes, and the
+// plan says so.
+func TestProjectBytesInvalidDstFallsBackToWholeFile(t *testing.T) {
+	src := []byte(`{"a":1}`)
+	out, strategy, err := projectBytes("settings.json", src, []byte(`{not json`), true)
+	if err != nil {
+		t.Fatalf("invalid dst: err=%v, want nil", err)
+	}
+	if strategy != StrategyJSONFallback {
+		t.Fatalf("strategy = %q, want %q", strategy, StrategyJSONFallback)
+	}
+	if string(out) != string(src) {
+		t.Fatalf("out = %q, want the library bytes", out)
 	}
 }
 
-func TestMergeJSONInvalidDstSkips(t *testing.T) {
-	dst := filepath.Join(t.TempDir(), "bad.json")
-	_ = os.WriteFile(dst, []byte(`{not json`), 0o600)
-	_, ok, err := mergeJSONObjects([]byte(`{"a":1}`), dst)
-	if err != nil || ok {
-		t.Fatalf("invalid dst: ok=%v err=%v, want ok=false err=nil", ok, err)
+func TestProjectBytesInvalidSrcFallsBackToWholeFile(t *testing.T) {
+	src := []byte(`{broken`)
+	out, strategy, err := projectBytes("settings.json", src, []byte(`{"keep":1}`), true)
+	if err != nil {
+		t.Fatalf("invalid src: err=%v, want nil", err)
+	}
+	if strategy != StrategyJSONFallback {
+		t.Fatalf("strategy = %q, want %q", strategy, StrategyJSONFallback)
+	}
+	if string(out) != string(src) {
+		t.Fatalf("out = %q, want the library bytes", out)
 	}
 }
 
-func TestMergeJSONInvalidSrcSkips(t *testing.T) {
-	dst := filepath.Join(t.TempDir(), "s.json")
-	_ = os.WriteFile(dst, []byte(`{"keep":1}`), 0o600)
-	_, ok, err := mergeJSONObjects([]byte(`{broken`), dst)
-	if err != nil || ok {
-		t.Fatalf("invalid src: ok=%v err=%v, want ok=false err=nil", ok, err)
+func TestProjectBytesMissingTargetCreates(t *testing.T) {
+	src := []byte(`{"a":1}`)
+	out, strategy, err := projectBytes("settings.json", src, nil, false)
+	if err != nil || strategy != StrategyCreate {
+		t.Fatalf("missing dst: strategy=%q err=%v, want %q", strategy, err, StrategyCreate)
+	}
+	if string(out) != string(src) {
+		t.Fatalf("out = %q, want the library bytes", out)
+	}
+}
+
+func TestProjectBytesMergesParsableJSON(t *testing.T) {
+	out, strategy, err := projectBytes("settings.json", []byte(`{"a":{"lib":1}}`), []byte(`{"a":{"user":2},"keep":3}`), true)
+	if err != nil || strategy != StrategyJSONMerge {
+		t.Fatalf("strategy=%q err=%v, want %q", strategy, err, StrategyJSONMerge)
+	}
+	if !strings.Contains(string(out), `"user": 2`) || !strings.Contains(string(out), `"lib": 1`) || !strings.Contains(string(out), `"keep": 3`) {
+		t.Fatalf("merge lost keys:\n%s", out)
+	}
+}
+
+func TestProjectBytesTOMLMerge(t *testing.T) {
+	out, strategy, err := projectBytes("config.toml", []byte("model = \"lib\"\n"), []byte("model = \"mine\"\napproval = \"never\"\n"), true)
+	if err != nil || strategy != StrategyTOMLMerge {
+		t.Fatalf("strategy=%q err=%v, want %q", strategy, err, StrategyTOMLMerge)
+	}
+	if !strings.Contains(string(out), `model = "lib"`) || !strings.Contains(string(out), `approval = "never"`) {
+		t.Fatalf("toml merge wrong:\n%s", out)
+	}
+}
+
+func TestProjectBytesWholeFileForPlainText(t *testing.T) {
+	out, strategy, err := projectBytes("AGENTS.md", []byte("library\n"), []byte("user\n"), true)
+	if err != nil || strategy != StrategyWholeFile {
+		t.Fatalf("strategy=%q err=%v, want %q", strategy, err, StrategyWholeFile)
+	}
+	if string(out) != "library\n" {
+		t.Fatalf("out = %q", out)
 	}
 }
 

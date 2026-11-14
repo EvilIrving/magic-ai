@@ -149,6 +149,9 @@ apply(magicHome, userHome, only):
     backupDir = new backup under magicHome/backups
 
     # 1) 共有原数据 → 该 harness 的格式（全部字段级合并，不整文件覆盖）
+    #    一家一个 SwitchWriter；`magic provider use` 与 apply 调同一份 Files。
+    #    现状：apply 只投影 claude / pi / opencode / workbuddy；
+    #    codex / grok 的 Files 已实现，但只由 `magic provider use` 触发。
     switch harness:
       claude:   upsert ~/.claude/settings.json env(ANTHROPIC_*, 角色)   # 真 token
       pi:       merge ~/.pi/agent/models.json providers.magic-<active>  # 真 key

@@ -60,6 +60,20 @@ Cherry Studio 内置几十家的是 **provider**（它是聊天客户端，不�
 > `mmx`（MiniMax Code，仅模型配置）。明确不做/不投：`roo`（已停运，D22）、Alma/MiniMax-MCP/Lingma（UI-only，D23）、`dsh` MCP（D24）、
 > 身份待确认的 `cola`（D25）。完整证据、能力矩阵、实施批次与两轮自审见
 > [harness-rollout-plan.md](./harness-rollout-plan.md)。
+>
+> **2026-11-14 第四轮（6 家）**：`dsh`、`mmx`、`craft`、`vscode`、`goose`、`vibe` 已注册 adapter。
+> 能力只按一手证据声明：**能写进该工具真正读取的用户级目录才标 ✅**，其余留空（每条 `Source:` 在 adapter 文件头部）。
+> 两家**没有用户级投影面**，只做 `packs/harness/<id>` 自定义镜像、**不声明任何 caps**：
+> - `craft` → **不支持同步**：skills 与 sources（MCP/API）都是 per-workspace（`<workspaceRoot>/skills`、`sources/`），
+>   `~/.craft-agent/config.json` 只有 workspace 注册表和 LLM connections。证据：`packages/shared/src/config/paths.ts`、
+>   `packages/shared/src/workspaces/storage.ts`、`packages/server-core/src/handlers/rpc/skills.ts`。
+> - `vscode` → **没有自己的 skills/MCP 落点**：个人 skills 复用 `~/.copilot/skills`、`~/.claude/skills`、`~/.agents/skills`；
+>   新 Copilot harness 的 MCP 在 `~/.copilot/mcp-config.json`（`.vscode/mcp.json` 与 profile `mcp.json` 是已弃用的 Local harness 格式）。
+>   证据：code.visualstudio.com `docs/copilot/customization/agent-skills`、`docs/agents/reference/mcp-configuration`。
+> 另两处与早前记录的偏差：`mmx` 的根是 **`~/.minimax`**（MiniMax-AI/minimax-code），不是 `~/.mmx`（那是 MiniMax-AI/cli 这个
+> API CLI，另一产品，无 skills/MCP）；`dsh` 的 `settings.yaml` 在 0.2 里只被导入一次并改名 `settings.yaml.imported`，
+> 现行配置是 profile 的 `cordis.patch.yml`（MCP 仍按 D24 暂缓）。
+> 六家都**没有** MCP / models / hooks 投影，也没有 SwitchWriter（`internal/mcp/target.go` 未新增行）。
 
 ## 能力分档（决定成本）
 
@@ -74,7 +88,7 @@ Cherry Studio 内置几十家的是 **provider**（它是聊天客户端，不�
 
 ---
 
-## 现状（已注册 28 个 adapter，含 `mcpuser`）
+## 现状（已注册 34 个 adapter，含 `mcpuser`）
 
 | ID | 名称 | L2 skills | agents | MCP | models 配置 | L3 writer |
 |---|---|---|---|---|---|---|
@@ -89,21 +103,28 @@ Cherry Studio 内置几十家的是 **provider**（它是聊天客户端，不�
 | `trae` | Trae | ✅ | ✅ | ✅ | | ❌ stub |
 | `cursor` | Cursor | ✅ | — | ✅ | — | ❌ |
 | `antigravity-cli` | Antigravity CLI | ✅ | — | ✅ | ❓ | ❌ |
-| `kimi-code` | Kimi Code | ✅ | ✅ | ✅ | ❓ | ❌ |
-| `qoder` / `qoder-cn` | Qoder / Qoder CN | ✅ | ✅ | ✅ | ❓ | ❌ |
-| `cline` | Cline | ✅ | — | ✅ | ❓ | ❌ |
+| `kimi-code` | Kimi Code | ✅ | ✅ | ✅ | ✅（`config.toml` providers/models） | ✅（多 provider，official=clear） |
+| `qoder` | Qoder | ✅ | ✅ | ✅ | ✅（`settings.json` `providers.magic-*` + `model.name`） | ✅（多 provider，official=clear） |
+| `qoder-cn` | Qoder CN | ✅ | ✅ | ✅ | ❓（同一 CLI 的另一站点，`$QODERCN_CONFIG_DIR`） | ❌（未注册 writer） |
+| `cline` | Cline | ✅ | — | ✅ | ❓（`settings/{providers,models}.json` 结构已核实） | ❌ stub（providers.json 的 `updatedAt` 由 harness 拥有，Files 里盖时间戳会破坏纯函数） |
 | `kiro` | Kiro | ✅ | ✅ | ✅ | ❓ | ❌ |
-| `droid` | Droid (Factory) | ✅ | ✅ | ✅ | ❓ | ❌ |
-| `zcode` | ZCode | ✅ | — | ✅ | ❓ | ❌ |
+| `droid` | Droid (Factory) | ✅ | ✅ | ✅ | ✅（`settings.json` customModels） | ✅（official=清 Magic 条目） |
+| `zcode` | ZCode | ✅ | — | ✅ | ❓（`v2/config.json` 只公开了 `options.*`） | ❌ stub（provider 结构与 `v2/provider_config.json` 无公开格式） |
 | `qwen-code` | Qwen Code | ✅ | ✅ | ✅ | ○ | ○ |
 | `iflow` | iFlow CLI | ✅ | — | ✅ | ○ | ○ |
 | `kilo` | Kilo Code | ✅ | ✅ | ✅ | ○ | ❌ |
 | `zed` | Zed | ✅ | — | ✅ | ❓ | ❌ |
-| `omp` | Oh My Pi | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `hermes` | Hermes Agent | ✅ | — | ✅ | ✅ | ❌ |
+| `omp` | Oh My Pi | ✅ | ✅ | ✅ | ✅（`models.yml` providers） | ✅（多 provider，official=clear） |
+| `hermes` | Hermes Agent | ✅ | — | ✅ | ✅（`config.yaml` model 块） | ✅（official=恢复 model 块） |
 | `mimocode` | MiMo Code | ✅ | ✅ | ✅ | ✅ | ○ |
 | `dimagent` | DimAgent | — | — | ✅ | ❓ | ❌ |
 | `openclaw` | OpenClaw | ✅ | — | ✅ | ❓ | ❌ |
+| `dsh` | DeepSeek Harness | ✅（`<dshHome>/skills`） | — | — | — | ❌ |
+| `mmx` | MiniMax Code | ✅（`~/.minimax/skills`） | — | — | ✅（`config.yaml` `custom_provider.magic-*` + 根 `defaultModel`） | ✅（多 provider，official=clear） |
+| `craft` | Craft Agents | — | — | — | — | ❌ |
+| `vscode` | Visual Studio Code | — | — | — | — | ❌ |
+| `goose` | goose | ✅（`<config>/skills`） | ✅（`~/.agents/agents`） | — | — | ❌ |
+| `vibe` | Mistral Vibe | ✅（`~/.vibe/skills`） | — | — | ✅（`config.toml` providers/models） | ✅（多 provider，official=clear） |
 | `mcpuser` | MCP 配置镜像（不是 harness） | | | ✅ | | n/a |
 
 另有 `cursor` 在 skills 目标里但无产品 adapter。**不做 windsurf**（产品濒临停运 / 已被收购，2026；不要因 vercel 名单里有它而加回）。

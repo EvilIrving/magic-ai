@@ -194,14 +194,14 @@ func TestPiMergeAndOfficialClear(t *testing.T) {
 	ctx := Context{MagicHome: magic, UserHome: home, Catalog: f}
 	w := PiWriter{}
 	req := ApplyRequest{Name: "shu", APIKey: "sk-real-pi-key", Provider: f.Providers["shu"], Endpoint: f.Providers["shu"].Endpoints[0]}
-	if _, err := w.Apply(ctx, req); err != nil {
+	if _, err := ApplyFiles(ctx, w, req); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(w.ConfigPath(home))
 	if !strings.Contains(string(raw), "magic-shu") || !strings.Contains(string(raw), "sk-real-pi-key") {
 		t.Fatalf("%s", raw)
 	}
-	if _, err := w.Apply(ctx, ApplyRequest{Official: true}); err != nil {
+	if _, err := ApplyFiles(ctx, w, ApplyRequest{Official: true}); err != nil {
 		t.Fatal(err)
 	}
 	raw2, _ := os.ReadFile(w.ConfigPath(home))
@@ -272,7 +272,7 @@ func TestStubNotImplemented(t *testing.T) {
 	if w == nil || w.Implemented() {
 		t.Fatal(w)
 	}
-	_, err := w.Apply(Context{}, ApplyRequest{Official: true})
+	_, err := w.Files(Context{}, ApplyRequest{Official: true})
 	if err == nil {
 		t.Fatal("expected not implemented")
 	}
@@ -299,7 +299,7 @@ func TestOpenCodeApplyAndOfficialClear(t *testing.T) {
 		Endpoint: catalog.Endpoint{ID: "openai-responses", BaseURL: "https://api.example.com/v1", Protocol: "openai-responses"},
 		APIKey:   "sk-test",
 	}
-	if _, err := (OpenCodeWriter{}).Apply(ctx, req); err != nil {
+	if _, err := ApplyFiles(ctx, OpenCodeWriter{}, req); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile((OpenCodeWriter{}).ConfigPath(home))
@@ -310,7 +310,7 @@ func TestOpenCodeApplyAndOfficialClear(t *testing.T) {
 	if !strings.Contains(s, `"magic-shu"`) || !strings.Contains(s, "https://api.example.com/v1") {
 		t.Fatalf("missing magic provider:\n%s", s)
 	}
-	if _, err := (OpenCodeWriter{}).Apply(ctx, ApplyRequest{Official: true}); err != nil {
+	if _, err := ApplyFiles(ctx, OpenCodeWriter{}, ApplyRequest{Official: true}); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ = os.ReadFile(OpenCodeWriter{}.ConfigPath(home))
@@ -345,7 +345,7 @@ func TestWorkBuddyApplyWritesRealKey(t *testing.T) {
 		},
 		Endpoint: catalog.Endpoint{BaseURL: "https://api.deepseek.com", Protocol: "openai-chat-completions"},
 	}
-	if _, err := (WorkBuddyWriter{}).Apply(ctx, req); err != nil {
+	if _, err := ApplyFiles(ctx, WorkBuddyWriter{}, req); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile((WorkBuddyWriter{}).ConfigPath(home))
@@ -359,7 +359,7 @@ func TestWorkBuddyApplyWritesRealKey(t *testing.T) {
 	if !strings.Contains(s, "user-local") {
 		t.Fatalf("user availableModels dropped:\n%s", s)
 	}
-	if _, err := (WorkBuddyWriter{}).Apply(ctx, ApplyRequest{Official: true}); err != nil {
+	if _, err := ApplyFiles(ctx, WorkBuddyWriter{}, ApplyRequest{Official: true}); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ = os.ReadFile(WorkBuddyWriter{}.ConfigPath(home))

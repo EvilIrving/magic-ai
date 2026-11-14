@@ -58,57 +58,42 @@ func (CodexWriter) ConfigPath(userHome string) string {
 	return CodexConfigPath(userHome)
 }
 
-func (w CodexWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
+// Files projects the resolved selection into ~/.codex/config.toml and, for a
+// third-party provider, the Magic-managed ~/.codex/models.json catalog that
+// model_catalog_json points at. Official mode removes that catalog again, so
+// Codex stops pointing at one Magic no longer maintains.
+func (w CodexWriter) Files(ctx Context, req ApplyRequest) ([]FileWrite, error) {
 	path := CodexConfigPath(ctx.UserHome)
 	modelsPath := CodexModelsPath(ctx.UserHome)
-	current, _ := readFileString(path)
-
-	var catalogJSON string
-	if !req.Official {
-		if err := WriteCodexModelsJSON(modelsPath, ctx.MagicHome, req.Provider); err != nil {
-			return "", err
+	current, err := readTarget(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	if req.Official {
+		updated, err := SetCodexManagedConfig(string(current), codexOfficialProvider, "", catalog.Provider{}, catalog.Endpoint{}, "", "")
+		if err != nil {
+			return nil, err
 		}
-		catalogJSON = CodexCatalogJSONValue(ctx.UserHome)
-	} else {
-		// Official: remove Magic-managed catalog file + model_catalog_json (never touch MCP/projects/plugins).
-		_ = os.Remove(modelsPath)
+		return []FileWrite{
+			{Path: path, Data: []byte(updated), Mode: 0o600, Role: RoleProviderBlock},
+			{Path: modelsPath, Mode: 0o600, Role: RoleModels, Remove: true},
+		}, nil
 	}
-
-	var updated string
-	var err error
-	if req.Official {
-		updated, err = SetCodexManagedConfig(current, codexOfficialProvider, "", catalog.Provider{}, catalog.Endpoint{}, "", "")
-	} else {
-		effort := codexReasoningEffort(ctx.MagicHome, req.Provider)
-		updated, err = SetCodexManagedConfig(current, req.Name, req.Name, req.Provider, req.Endpoint, catalogJSON, effort)
-	}
+	cataloged := BuildCodexModelsCatalog(ctx.MagicHome, req.Provider)
+	raw, err := json.MarshalIndent(cataloged, "", "  ")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if updated == current && fileExists(path) && (req.Official || fileExists(modelsPath)) {
-		return fmt.Sprintf("Configuration already uses model_provider=%q", GetCodexProvider(current)), nil
-	}
-	bak, err := CreateBackup(ctx.MagicHome, HarnessCodex, path, "config", ".toml")
+	raw = append(raw, '\n')
+	effort := codexReasoningEffort(ctx.MagicHome, req.Provider)
+	updated, err := SetCodexManagedConfig(string(current), req.Name, req.Name, req.Provider, req.Endpoint, CodexCatalogJSONValue(ctx.UserHome), effort)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if err := atomicWrite(path, []byte(updated), 0o600); err != nil {
-		return "", err
-	}
-	var b strings.Builder
-	if bak != "" {
-		fmt.Fprintf(&b, "Backup: %s\n", bak)
-	}
-	if req.Official {
-		b.WriteString("Codex configured for official OpenAI / ChatGPT authentication.\n")
-		b.WriteString("Removed model_catalog_json and Magic-managed ~/.codex/models.json (if present).\n")
-	} else {
-		fmt.Fprintf(&b, "Codex configured for provider %q (base_url=%s wire_api=%s).\n",
-			req.Name, req.Endpoint.BaseURL, ProtocolToCodexWire(req.Endpoint.Protocol))
-		fmt.Fprintf(&b, "Wrote Codex-native catalog %s and model_catalog_json.\n", modelsPath)
-	}
-	b.WriteString("Restart Codex / ChatGPT Desktop for the change to take effect.\n")
-	return b.String(), nil
+	return []FileWrite{
+		{Path: modelsPath, Data: raw, Mode: 0o600, Role: RoleModels},
+		{Path: path, Data: []byte(updated), Mode: 0o600, Role: RoleProviderBlock},
+	}, nil
 }
 
 func (w CodexWriter) Status(ctx Context) string {
@@ -583,15 +568,4 @@ func codexReasoningLevelsFromMeta(meta modelfile.Model) []CodexReasoningLevel {
 		levels = append(levels, CodexReasoningLevel{Effort: k})
 	}
 	return levels
-}
-
-// WriteCodexModelsJSON writes Magic-managed Codex-native models.json (mode 0600).
-func WriteCodexModelsJSON(path, magicHome string, p catalog.Provider) error {
-	cat := BuildCodexModelsCatalog(magicHome, p)
-	raw, err := json.MarshalIndent(cat, "", "  ")
-	if err != nil {
-		return err
-	}
-	raw = append(raw, '\n')
-	return atomicWrite(path, raw, 0o600)
 }

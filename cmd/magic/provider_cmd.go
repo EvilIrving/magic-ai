@@ -30,7 +30,7 @@ Semantics:
   magic provider use <providerName>   # from providers.yaml
   magic provider use company          # alias for providers.active / MAGIC_ACTIVE_PROVIDER
 
-Dialect writers (SwitchWriter): Claude, Codex, Grok, Pi, OpenCode, WorkBuddy implemented; gemini/copilot/trae apply-only.`,
+Dialect writers (SwitchWriter): Claude, Codex, Grok, Pi, OpenCode, WorkBuddy, Kimi Code, Vibe, Hermes, Oh My Pi, Droid implemented; gemini/copilot/trae apply-only; cline/qoder/zcode/mmx are stubs (no verified provider dialect).`,
 	}
 	c.PersistentFlags().String("harness", "", "claude|codex|grok|pi|… (default: all implemented for list/status; required for use/test/backup when ambiguous)")
 	c.PersistentFlags().String("home", "", "user home (fixture)")

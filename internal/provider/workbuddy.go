@@ -36,21 +36,18 @@ func (w WorkBuddyWriter) ConfigPath(userHome string) string {
 	return cb
 }
 
-func (w WorkBuddyWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
+// Files projects the resolved selection into the WorkBuddy models.json Magic
+// manages: one model row per pick, or the managed rows removed for official.
+func (w WorkBuddyWriter) Files(ctx Context, req ApplyRequest) ([]FileWrite, error) {
 	path := w.ConfigPath(ctx.UserHome)
-	raw, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return "", err
-	}
-	bak, err := CreateBackup(ctx.MagicHome, HarnessWorkBuddy, path, "models", ".json")
+	raw, err := readTarget(ctx, path)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
 	root := map[string]any{}
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &root); err != nil {
-			return "", fmt.Errorf("parse models.json: %w", err)
+			return nil, fmt.Errorf("parse models.json: %w", err)
 		}
 	}
 
@@ -74,23 +71,10 @@ func (w WorkBuddyWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
 
 	out, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	out = append(out, '\n')
-	if err := atomicWrite(path, out, 0o600); err != nil {
-		return "", err
-	}
-	var b strings.Builder
-	if bak != "" {
-		fmt.Fprintf(&b, "Backup: %s\n", bak)
-	}
-	if req.Official {
-		b.WriteString("WorkBuddy: removed Magic-managed models (official).\n")
-	} else {
-		fmt.Fprintf(&b, "WorkBuddy: wrote %d model(s) from provider %s → %s\n",
-			len(req.Provider.Pick), req.Name, path)
-	}
-	return b.String(), nil
+	return []FileWrite{{Path: path, Data: out, Mode: 0o600, Role: RoleModels}}, nil
 }
 
 func isMagicWorkBuddyID(id string) bool {

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"magic/internal/adapter"
+	"magic/internal/backup"
 	"magic/internal/secrets"
 )
 
@@ -56,7 +57,7 @@ func Apply(opts Options) ([]string, error) {
 			log = append(log, fmt.Sprintf("[%s] mcp: n/a", id))
 			continue
 		}
-		logs, err := Project(t, opts.UserHome, f, opts.DryRun, opts.BackupDir)
+		logs, err := Project(t, opts.UserHome, a.MirrorRoot(opts.UserHome), f, opts.DryRun, opts.BackupDir)
 		if err != nil {
 			return log, fmt.Errorf("[%s] mcp: %w", id, err)
 		}
@@ -66,79 +67,120 @@ func Apply(opts Options) ([]string, error) {
 }
 
 // Project writes the enabled canonical servers into one harness target.
-func Project(t Target, userHome string, f *File, dryRun bool, backupDir string) ([]string, error) {
-	var log []string
-	path := t.Path(userHome)
-	entries := map[string]map[string]any{}
-	skipped := 0
-	for _, name := range f.Names() {
-		s := f.MCP[name]
-		if !s.IsEnabled() && !styleSupportsEnabled(t.Style) {
-			log = append(log, fmt.Sprintf("[%s] mcp: n/a %s (disabled; %s has no enabled flag)", t.Harness, name, t.Harness))
-			skipped++
-			continue
-		}
-		entry, ok, reason := Translate(s, t.Style)
-		if !ok {
-			log = append(log, fmt.Sprintf("[%s] mcp: n/a %s — %s", t.Harness, name, reason))
-			skipped++
-			continue
-		}
-		entries[name] = entry
-	}
+//
+// mirrorRoot is that harness's configuration root. Backup entries record paths
+// relative to it, so a target below a subdirectory (Kiro's settings/mcp.json)
+// keeps its subdirectory in the backup set and rollback can put it back.
+//
+// The content comes from ProjectBytes: plan stacks its layers with the same
+// computation, so a plan cannot describe a projection apply would not make.
+func Project(t Target, userHome, mirrorRoot string, f *File, dryRun bool, backupDir string) ([]string, error) {
+	// targetEntries is the same call ProjectBytes makes; here it also produces
+	// the notes for the servers this dialect cannot hold.
+	entries, log := targetEntries(t, f)
 	if len(entries) == 0 {
-		if skipped > 0 {
+		if len(log) > 0 {
 			return log, nil
 		}
 		log = append(log, fmt.Sprintf("[%s] mcp: skip (nothing to write)", t.Harness))
 		return log, nil
 	}
 	if dryRun {
-		log = append(log, fmt.Sprintf("[%s] mcp: would merge %d server(s) → %s", t.Harness, len(entries), path))
+		log = append(log, fmt.Sprintf("[%s] mcp: would merge %d server(s) → %s", t.Harness, len(entries), t.Path(userHome)))
 		return log, nil
 	}
-	if backupDir != "" && fileExists(path) {
-		if err := backupFile(path, backupDir, filepath.Join(t.Harness, filepath.Base(path))); err != nil {
-			return log, err
-		}
+	path, out, _, err := ProjectBytes(t, userHome, f)
+	if err != nil {
+		return log, err
 	}
-	switch t.Format {
-	case FormatTOML:
-		text, err := readText(path)
-		if err != nil {
-			return log, err
-		}
-		out := upsertTOMLSections(text, t.TopKey, entries)
-		if err := writeFile(path, []byte(out)); err != nil {
-			return log, err
-		}
-	case FormatYAML:
-		text, err := readText(path)
-		if err != nil {
-			return log, err
-		}
-		out, err := upsertYAMLSection(text, t.TopKey, entries)
-		if err != nil {
-			return log, fmt.Errorf("parse %s: %w", path, err)
-		}
-		if err := writeFile(path, out); err != nil {
-			return log, err
-		}
-	default:
-		if t.LenientJSON && !jsonConfigParseable(path) {
-			log = append(log, fmt.Sprintf("[%s] mcp: n/a (config is not plain JSON; left untouched)", t.Harness))
-			return log, nil
-		}
-		out, err := mergeJSONConfig(path, t.TopKey, entries)
-		if err != nil {
-			return log, err
-		}
-		if err := writeFile(path, out); err != nil {
-			return log, err
-		}
+	if out == nil {
+		log = append(log, fmt.Sprintf("[%s] mcp: n/a (config is not plain JSON; left untouched)", t.Harness))
+		return log, nil
+	}
+	if err := recordProjection(t, userHome, mirrorRoot, path, out, backupDir); err != nil {
+		return log, err
+	}
+	if err := writeFile(path, out); err != nil {
+		return log, err
 	}
 	log = append(log, fmt.Sprintf("[%s] mcp: merged %d server(s) → %s", t.Harness, len(entries), path))
 	return log, nil
+}
+
+// targetEntries translates every server of f that this target's dialect can
+// hold. The notes explain the ones it cannot: a disabled server on a dialect
+// without an enabled flag, or a transport the dialect has no field for.
+func targetEntries(t Target, f *File) (entries map[string]map[string]any, notes []string) {
+	entries = map[string]map[string]any{}
+	for _, name := range f.Names() {
+		s := f.MCP[name]
+		if !s.IsEnabled() && !styleSupportsEnabled(t.Style) {
+			notes = append(notes, fmt.Sprintf("[%s] mcp: n/a %s (disabled; %s has no enabled flag)", t.Harness, name, t.Harness))
+			continue
+		}
+		entry, ok, reason := Translate(s, t.Style)
+		if !ok {
+			notes = append(notes, fmt.Sprintf("[%s] mcp: n/a %s — %s", t.Harness, name, reason))
+			continue
+		}
+		entries[name] = entry
+	}
+	return entries, notes
+}
+
+// ProjectBytes computes what Project would write into t without writing it:
+// the target path, the merged bytes, and how many servers went in.
+//
+// out is nil when there is nothing to write: no server reaches this dialect, or
+// (LenientJSON) the target is not plain JSON and must be left untouched.
+func ProjectBytes(t Target, userHome string, f *File) (path string, out []byte, entries int, err error) {
+	path = t.Path(userHome)
+	existing, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return path, nil, 0, err
+	}
+	translated, _ := targetEntries(t, f)
+	if len(translated) == 0 {
+		return path, nil, 0, nil
+	}
+	out, err = mergeEntries(t, path, translated, existing)
+	if err != nil {
+		return path, nil, len(translated), err
+	}
+	return path, out, len(translated), nil
+}
+
+// MergeProjection applies t's merge rules to existing — the content the target
+// holds when this layer runs — and returns the bytes Project would write.
+//
+// It is how plan stacks layers: each projection merges into the previous layer's
+// output instead of re-reading the file. out is nil when there is nothing to
+// write (see ProjectBytes).
+func MergeProjection(t Target, path string, f *File, existing []byte) (out []byte, err error) {
+	translated, _ := targetEntries(t, f)
+	if len(translated) == 0 {
+		return nil, nil
+	}
+	return mergeEntries(t, path, translated, existing)
+}
+
+// mergeEntries merges translated servers into existing content. out is nil when
+// the target must be left untouched: a LenientJSON file that is not plain JSON.
+func mergeEntries(t Target, path string, entries map[string]map[string]any, existing []byte) ([]byte, error) {
+	switch t.Format {
+	case FormatTOML:
+		return []byte(upsertTOMLSections(string(existing), t.TopKey, entries)), nil
+	case FormatYAML:
+		out, err := upsertYAMLSection(string(existing), t.TopKey, entries)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		return out, nil
+	}
+	if t.LenientJSON && !jsonParseable(existing) {
+		return nil, nil
+	}
+	return mergeJSONConfig(path, t.TopKey, entries, existing)
 }
 
 func styleSupportsEnabled(style string) bool {
@@ -150,23 +192,22 @@ func styleSupportsEnabled(style string) bool {
 	return false
 }
 
-// jsonConfigParseable reports whether an existing file parses as plain JSON or
-// JSONC. A missing/empty file counts as parseable (a fresh one is written).
-func jsonConfigParseable(path string) bool {
-	raw, err := os.ReadFile(path)
-	if err != nil || len(strings.TrimSpace(string(raw))) == 0 {
+// jsonParseable reports whether content parses as plain JSON or JSONC. Missing
+// or empty content counts as parseable (a fresh file is written).
+func jsonParseable(content []byte) bool {
+	if len(strings.TrimSpace(string(content))) == 0 {
 		return true
 	}
 	var root map[string]any
-	return json.Unmarshal(secrets.StripJSONC(raw), &root) == nil
+	return json.Unmarshal(secrets.StripJSONC(content), &root) == nil
 }
 
 // mergeJSONConfig sets root[topKey][name]=entry, preserving all other content.
 // topKey may be a dotted path (e.g. "mcp.servers") for nested configs.
-func mergeJSONConfig(path, topKey string, entries map[string]map[string]any) ([]byte, error) {
+func mergeJSONConfig(path, topKey string, entries map[string]map[string]any, existing []byte) ([]byte, error) {
 	root := map[string]any{}
-	if raw, err := os.ReadFile(path); err == nil && len(strings.TrimSpace(string(raw))) > 0 {
-		if err := json.Unmarshal(secrets.StripJSONC(raw), &root); err != nil {
+	if len(strings.TrimSpace(string(existing))) > 0 {
+		if err := json.Unmarshal(secrets.StripJSONC(existing), &root); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
 	}
@@ -196,17 +237,6 @@ func ensureNestedMap(root map[string]any, key string) map[string]any {
 	return cur
 }
 
-func readText(path string) (string, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		}
-		return "", err
-	}
-	return string(raw), nil
-}
-
 func writeFile(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -221,14 +251,49 @@ func writeFile(path string, data []byte) error {
 	return os.Chmod(path, 0o600)
 }
 
-func backupFile(path, backupDir, rel string) error {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return err
+// recordProjection adds the target to the backup set's manifest. An existing
+// target is copied into the set first; a missing one is recorded as create so
+// rollback deletes it. out is the content about to be written: its fingerprint
+// lets rollback tell this projection's output from a later user edit.
+func recordProjection(t Target, userHome, mirrorRoot, path string, out []byte, backupDir string) error {
+	if backupDir == "" {
+		return nil
 	}
-	dst := filepath.Join(backupDir, rel)
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
+	rel := projectionRel(t, userHome, mirrorRoot, path)
+	action, backupRel := backup.ActionCreate, ""
+	if fileExists(path) {
+		action, backupRel = backup.ActionUpdate, filepath.Join(t.Harness, rel)
 	}
-	return os.WriteFile(dst, raw, 0o600)
+	return backup.Record(backupDir, backup.Entry{
+		Adapter: t.Harness,
+		Rel:     rel,
+		Target:  path,
+		Backup:  backupRel,
+		Action:  action,
+		Mode:    backup.ModeString(0o600),
+		After:   backup.FingerprintOf(out),
+	})
+}
+
+// projectionRel is where a projection target is recorded inside a backup set:
+// relative to the harness's mirror root, falling back to the user home.
+func projectionRel(t Target, userHome, mirrorRoot, path string) string {
+	// ~/.claude.json lives outside Claude's mirror root, so it is addressed by
+	// the name apply uses for the same file.
+	if t.Harness == "claude" && filepath.Base(path) == ".claude.json" {
+		return backup.ClaudeJSONRel
+	}
+	if mirrorRoot != "" {
+		if rel, err := filepath.Rel(mirrorRoot, path); err == nil && !escapesUp(rel) {
+			return rel
+		}
+	}
+	if rel, err := filepath.Rel(userHome, path); err == nil {
+		return rel
+	}
+	return filepath.Base(path)
+}
+
+func escapesUp(rel string) bool {
+	return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

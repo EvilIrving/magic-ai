@@ -23,58 +23,37 @@ func (PiWriter) ConfigPath(userHome string) string {
 	return filepath.Join(userHome, ".pi", "agent", "models.json")
 }
 
-func (w PiWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
+// Files projects the resolved selection into ~/.pi/agent/models.json, plus the
+// models.magic.json sidecar that shows what Magic owns there.
+func (w PiWriter) Files(ctx Context, req ApplyRequest) ([]FileWrite, error) {
 	path := w.ConfigPath(ctx.UserHome)
-	var existing []byte
-	if raw, err := os.ReadFile(path); err == nil {
-		existing = raw
-	} else if !os.IsNotExist(err) {
-		return "", err
-	}
-
-	bak, err := CreateBackup(ctx.MagicHome, HarnessPi, path, "models", ".json")
+	existing, err := readTarget(ctx, path)
 	if err != nil {
-		return "", err
-	}
-
-	var out []byte
-	if req.Official {
-		out, err = removeMagicPiProviders(existing)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		pid := catalog.MagicPiProviderID(req.Name)
-		resolve := modelfile.MetaResolver(ctx.MagicHome)
-		entry := catalog.BuildPiProviderEntry(req.Endpoint, req.APIKey, req.Provider.Pick, resolve)
-		out, err = catalog.MergePiModelsJSON(existing, pid, entry)
-		if err != nil {
-			return "", err
-		}
-		// sidecar
-		side := filepath.Join(ctx.UserHome, ".pi", "agent", "models.magic.json")
-		sidePayload, _ := catalog.MergePiModelsJSON(nil, pid, entry)
-		_ = atomicWrite(side, sidePayload, 0o600)
-	}
-	if err := atomicWrite(path, out, 0o600); err != nil {
-		return "", err
-	}
-
-	// Optional probe summary under MAGIC_HOME/registry
-	_ = writeProbeSummary(ctx, req)
-
-	var b strings.Builder
-	if bak != "" {
-		fmt.Fprintf(&b, "Backup: %s\n", bak)
+		return nil, err
 	}
 	if req.Official {
-		b.WriteString("Pi: removed Magic-managed providers.* entries (none — Pi has no first-party provider).\n")
-	} else {
-		fmt.Fprintf(&b, "Pi: merged provider %s (endpoint=%s api=%s apiKey=set).\n",
-			catalog.MagicPiProviderID(req.Name), req.Endpoint.ID,
-			catalog.ProtocolToPiAPI(req.Endpoint.Protocol))
+		out, err := removeMagicPiProviders(existing)
+		if err != nil {
+			return nil, err
+		}
+		return []FileWrite{{Path: path, Data: out, Mode: 0o600, Role: RoleModels}}, nil
 	}
-	return b.String(), nil
+	pid := catalog.MagicPiProviderID(req.Name)
+	entry := catalog.BuildPiProviderEntry(req.Endpoint, req.APIKey, req.Provider.Pick, modelfile.MetaResolver(ctx.MagicHome))
+	out, err := catalog.MergePiModelsJSON(existing, pid, entry)
+	if err != nil {
+		return nil, err
+	}
+	side := filepath.Join(ctx.UserHome, ".pi", "agent", "models.magic.json")
+	// The sidecar merges into an empty file: it shows only Magic's own provider.
+	sidePayload, err := catalog.MergePiModelsJSON(nil, pid, entry)
+	if err != nil {
+		return nil, err
+	}
+	return []FileWrite{
+		{Path: path, Data: out, Mode: 0o600, Role: RoleModels},
+		{Path: side, Data: sidePayload, Mode: 0o600, Role: RoleSidecar},
+	}, nil
 }
 
 func (w PiWriter) Status(ctx Context) string {

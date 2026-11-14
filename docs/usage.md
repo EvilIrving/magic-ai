@@ -547,6 +547,249 @@ packs/harness/opencode/plugins/*.ts    # 代码式插件，原样写回
 
 ---
 
+## 12. `magic plan` —— 先看 apply 会写什么 ✅
+
+**什么时候用**：动手之前想知道 apply 会改哪些文件、改哪个键；或者把「这次写入清单」打进 CI 日志。
+
+```bash
+magic plan             # 全部启用（magic.yaml 的 enabled）的 harness
+magic plan --only pi   # 只算一家
+magic plan --json      # 机器可读（字段见 docs/plan.md）
+```
+
+**只读**：不写目标文件、不写备份、不动 `magic.yaml`。
+
+### 终端输出 ✅（临时库 + 临时 home 实测）
+
+```
+配置库: /Users/you/.magic-ai
+目标主目录: /Users/you
+
+ADAPTER  ACTION     REL                MODE  BACKUP  说明
+claude   update     _claude.json       0600  yes     claude partial 深合并 → mcp 投影
+                                                     add mcpServers.docs.args
+                                                     add mcpServers.docs.command
+                                                     add mcpServers.linear.args
+                                                     add mcpServers.linear.command
+                                                     keep projects
+claude   update     settings.json      0600  yes     镜像 JSON 合并 → provider 投影 env
+                                                     add env.ANTHROPIC_API_KEY
+                                                     add env.ANTHROPIC_AUTH_TOKEN
+                                                     add env.ANTHROPIC_BASE_URL
+                                                     add env.ANTHROPIC_MODEL
+                                                     add permissions.allow
+                                                     keep statusLine
+codex    update     config.toml        0600  yes     镜像 TOML 合并 → mcp 投影
+                                                     行 +12 -1
+grok     -          -                  -     -       配置库里没有镜像目录 /Users/you/.magic-ai/packs/harness/grok；apply 不投影该 adapter 的 provider（只有 magic provider use 会写）
+pi       unchanged  AGENTS.md          0644  -       镜像整文件覆盖（结果与磁盘一致）
+pi       create     mcp.json           0600  -       mcp 投影
+                                                     add mcpServers.docs.args
+                                                     add mcpServers.docs.command
+                                                     add mcpServers.docs.disabled
+                                                     add mcpServers.linear.args
+                                                     add mcpServers.linear.command
+                                                     add mcpServers.linear.disabled
+pi       create     models.json        0600  -       provider 投影 models.json
+                                                     add providers.magic-shu.api
+                                                     add providers.magic-shu.apiKey
+                                                     add providers.magic-shu.baseUrl
+                                                     add providers.magic-shu.models
+pi       create     models.magic.json  0600  -       provider 投影 models.magic.json
+                                                     add providers.magic-shu.api
+                                                     add providers.magic-shu.apiKey
+                                                     add providers.magic-shu.baseUrl
+                                                     add providers.magic-shu.models
+
+7 个文件：3 新建，3 更新，0 删除，1 不变
+```
+
+`ACTION` 四取一（每个文件一条）：
+
+| 值 | 含义 |
+|---|---|
+| `create` | 目标还不存在，apply 会新建 |
+| `update` | 内容会变；`BACKUP yes` = apply 先把它复制到 `backups/<时间戳>/` |
+| `delete` | apply 会删掉这个文件（provider 投影用删除表达「清空」）。今天 `magic plan` 里看不到它：唯一的删除来自 codex 官方模式的 provider 投影，而 `apply` 不投影 codex / grok（那条路是 `magic provider use`），所以这个值目前出现在 plan 的 schema 与 `verify` 的 `delete` 漂移里 |
+| `unchanged` | 内容与权限都和库一致，apply 不写盘、不动 mtime |
+
+`说明` 列按顺序列出写这个文件的层（`镜像 → provider → mcp`）。JSON 配置给键级差异：
+`add`（库有、目标没有）、`overwrite`（值会变）、`keep`（库没定义、合并后保留你的值）；
+`config.toml` 给行数（`行 +12 -1`），不做字符级 diff。最后一行是四类计数汇总。
+
+### 库内没有镜像目录时也会报投影
+
+codex 在多数配置库里没有 `packs/harness/codex`，但 MCP 投影照样写 `~/.codex/config.toml`，plan 必须列出这一条：
+
+```
+ADAPTER  ACTION  REL          MODE  BACKUP  说明
+codex    update  config.toml  0600  yes     mcp 投影
+                                            行 +5 -0
+
+1 个文件：0 新建，1 更新，0 删除，0 不变
+```
+
+把 `packs/mcp/mcp.yaml` 也去掉，才是「什么都不写」，这时说明列会同时给出两个原因：
+
+```
+ADAPTER  ACTION  REL  MODE  BACKUP  说明
+codex    -       -    -     -       配置库里没有镜像目录 /Users/you/.magic-ai/packs/harness/codex；apply 不投影该 adapter 的 provider（只有 magic provider use 会写）
+
+0 个文件：0 新建，0 更新，0 删除，0 不变
+```
+
+两句缺一不可：只看第一句会以为「往库里放一个 `packs/harness/codex` 就能让 apply 管 codex」——
+而 apply 根本不投影 codex / grok 的 provider，那条路要 `magic provider use` 才走得到。
+
+### 生成的文件
+
+无。plan 只读；它给出的 `REL`、`MODE`、`BACKUP` 就是 apply 接下来会用到的值。
+
+---
+
+## 13. `magic verify` —— 检查有没有漂移 ✅
+
+**什么时候用**：apply 之后确认真的落地了；放进 CI 守住「配置库 = 本机配置」。
+
+```bash
+magic verify                # 全部启用（magic.yaml 的 enabled）的 harness
+magic verify --only claude
+magic verify --json
+```
+
+**只读**：不写目标文件，也不修漂移（要修是 `magic apply`）。
+
+### 终端输出 ✅：有漂移时退出码 1
+
+```
+配置库: /Users/you/.magic-ai
+目标主目录: /Users/you
+
+ADAPTER  状态      REL            路径
+claude   differ  settings.json  /Users/you/.claude/settings.json
+
+检查 8 个文件，1 处漂移，0 个 adapter 被跳过
+Error: 发现 1 处漂移（运行 magic apply 修正，magic plan 查看细节）
+```
+
+`状态` 三取一：`missing`（apply 会新建）、`differ`（内容不同）、`delete`（apply 会删除）。
+`--json` 给同样的内容：`checked`、`drift[]`、`skipped[]`。没有漂移时退出码 0：
+
+```
+ADAPTER  状态  REL  路径
+
+检查 8 个文件，0 处漂移，0 个 adapter 被跳过
+```
+
+### 空检查与被跳过的 adapter 也返回非零
+
+verify 只有在真的检查过文件时才敢说「一致」。一个都没查时退出码 1，并列出被跳过的 adapter 及原因：
+
+```
+ADAPTER  状态  REL  路径
+跳过：codex: 配置库里没有镜像目录 /Users/you/.magic-ai/packs/harness/codex；apply 不投影该 adapter 的 provider（只有 magic provider use 会写）
+
+检查 0 个文件，0 处漂移，1 个 adapter 被跳过
+Error: 没有检查任何文件：所有 adapter 都被跳过，verify 不能据此判定一致
+```
+
+有漂移又有跳过时先报漂移；只有跳过时退出码 1，并说明「N 个 adapter 被跳过，verify 不能判定它们的状态」。
+
+### 不覆盖的投影如实说明
+
+verify 只覆盖 plan 能预测的四层：镜像、claude partial（`~/.claude.json`）、provider 投影
+（claude / pi / opencode / workbuddy）、MCP 投影。下面这些**不在**它的检查范围内，它也不会
+声称它们一致：
+
+- skills 与 sub-agents 的目录投影 —— 看 `magic skills status` / `magic agents`；
+- codex / grok 的 provider 投影 —— 只有 `magic provider use codex|grok` 会写，不在 apply 的写集里。
+
+### 生成的文件
+
+无。
+
+---
+
+## 14. `magic rollback` —— 回到某次 apply 之前 ✅
+
+**什么时候用**：apply 之后发现不对，想整体退回上一次的状态。
+
+```bash
+magic rollback --list                       # 有哪些备份
+magic rollback                              # 回到最新一次 apply 之前
+magic rollback --to 20261113T194845Z --adapter pi
+magic rollback --dry-run                    # 只看会动哪些文件
+magic rollback --force
+```
+
+**输入**：`backups/<时间戳>/manifest.json`（apply 每次写入时记的清单：目标、动作、备份副本、
+`before` / `after` 指纹）+ 同目录下的副本文件。
+
+### 终端输出 ✅：默认不覆盖你手改过的文件
+
+apply 之后又手改过的目标，内容指纹既不是 apply 写的（`after`）也不是 apply 换掉的（`before`），
+默认跳过并逐条给原因，其余按清单还原：
+
+```
+ADAPTER  动作  REL                          路径                                    字节
+pi       删除  .pi/agent/models.json        /Users/you/.pi/agent/models.json        -
+pi       删除  .pi/agent/models.magic.json  /Users/you/.pi/agent/models.magic.json  -
+pi       删除  mcp.json                     /Users/you/.pi/agent/mcp.json           -
+跳过：pi/AGENTS.md: 目标在 apply 之后被改动，跳过（加 --force 覆盖）
+
+跳过 1 个（见上），加 --force 强制按 manifest 执行
+
+恢复 0 个文件，删除 3 个（备份 20261113T194845Z）
+```
+
+`--force` 才按清单执行（这一条是 `update`，所以是「恢复」，字节数是回填副本的大小）：
+
+```
+ADAPTER  动作  REL                          路径                                    字节
+pi       删除  .pi/agent/models.json        /Users/you/.pi/agent/models.json        -
+pi       删除  .pi/agent/models.magic.json  /Users/you/.pi/agent/models.magic.json  -
+pi       恢复  AGENTS.md                    /Users/you/.pi/agent/AGENTS.md          18
+pi       删除  mcp.json                     /Users/you/.pi/agent/mcp.json           -
+
+恢复 1 个文件，删除 3 个（备份 20261113T194845Z）
+```
+
+### 路径越界一律拒绝，`--force` 也不执行
+
+清单里的目标在 user home 之外（或备份路径逃出备份集）时，条目归「拒绝」，与可以用 `--force` 的
+「跳过」分开报：
+
+```
+ADAPTER  动作  REL        路径                            字节
+pi       恢复  AGENTS.md  /Users/you/.pi/agent/AGENTS.md  15
+拒绝：pi/escape.json: 目标 /etc/magic-demo-escape.json 不在 user home /Users/you 之下，拒绝写入
+
+拒绝 1 个（见上），--force 也不执行
+
+恢复 1 个文件，删除 0 个（备份 20990101T000000Z）
+```
+
+这条校验守的是文件系统边界，不是内容，所以 `--force` 不解锁。
+
+### `--list` 区分 apply 备份与 provider 备份
+
+```
+时间戳               文件数  ADAPTERS
+20261113T194828Z  7    claude, codex, grok, pi
+provider 备份，不参与回滚：claude
+```
+
+只有 `backups/<时间戳>/`（带 `manifest.json`）能回滚；`backups/<harness>/` 是 provider 层
+自己的备份目录，列出来但标明不参与回滚。没有 `manifest.json` 的旧备份按老办法只恢复文件，
+并明确标注「旧备份，只恢复文件不删除新建」。
+
+### 生成的文件
+
+按清单还原目标：`update` 条目把 apply 之前的副本放回去，`create` 条目删除 apply 新建的文件。
+「字节」列是写回/删除的大小（删除显示 `-`）。
+
+---
+
 ## 命令速查（使用视角）
 
 | 我想…… | 命令 | 状态 |
@@ -561,6 +804,9 @@ packs/harness/opencode/plugins/*.ts    # 代码式插件，原样写回
 | 看库里有啥 | `magic catalog` | ✅ |
 | 把 provider 拷成文本 | `magic copy <provider>` | ✅ |
 | 让各工具生效 | `magic apply` | ✅ |
+| 动手前看会写什么 | `magic plan` | ✅（只读） |
+| 检查有没有漂移 | `magic verify` | ✅（只读，漂移退出码 1） |
+| 退回某次 apply 之前 | `magic rollback` | ✅（`--list` / `--force`） |
 | 把 MCP / hooks 投进各工具 | `magic apply`（`packs/mcp` / `packs/harness/<id>/hooks`） | ✅ |
 | 看 MCP 投影状态 | `magic mcp list\|status` | ✅ |
 | 收一个外部文件进库 | `magic add path <file>` | ✅ |

@@ -5,6 +5,8 @@
 | 文档 | 给谁 | 内容 |
 |------|------|------|
 | [decisions.md](./decisions.md) | **对内** | **产品决定（已锁定，唯一清单）** |
+| [architecture.md](./architecture.md) | **对内** | **代码架构**：分层、数据流、不变量、adapter 契约、四个动作的现状 |
+| [plan.md](./plan.md) | **对内 + 对外** | **plan**：apply 之前的只读计算结果，JSON 字段与真实样例 |
 | [open-questions.md](./open-questions.md) | **对内** | **未决清单**：还没定的决策 / 待调研 / 代码待改 |
 | [usage.md](./usage.md) | **对外 + 对内** | 产品使用定义：命令 → 输入 → 终端输出 → 生成的文件 |
 | [apply-design.md](./apply-design.md) | **对内** | **设计**：apply = 共有原数据投影 + 各 harness 定制 |

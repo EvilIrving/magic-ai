@@ -8,6 +8,7 @@ import (
 
 	"magic/internal/adapter"
 	"magic/internal/agents"
+	"magic/internal/backup"
 	"magic/internal/skills"
 )
 
@@ -17,6 +18,9 @@ type ApplyOptions struct {
 	UserHome  string
 	DryRun    bool
 	Only      string
+	// BackupDir is the backup set this run records into. Empty on a dry run and
+	// for a plan, which writes nothing.
+	BackupDir string
 }
 
 // ApplyAdapter restores the mirrored custom tree for one adapter.
@@ -53,9 +57,6 @@ func ApplyAdapter(a adapter.Adapter, opts ApplyOptions, backupDir string) ([]str
 		}
 		dst := filepath.Join(dstRoot, rel)
 		if !opts.DryRun {
-			if _, err := os.Stat(dst); err == nil && backupDir != "" {
-				_ = BackupPath(dst, backupDir, filepath.Join(string(a.ID()), rel))
-			}
 			data, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -64,7 +65,7 @@ func ApplyAdapter(a adapter.Adapter, opts ApplyOptions, backupDir string) ([]str
 			if secretBearingName(rel) {
 				mode = 0o600
 			}
-			if err := mergeLibraryFile(dst, rel, data, mode); err != nil {
+			if err := mergeLibraryFile(backupDir, a.ID(), dst, rel, data, mode); err != nil {
 				return err
 			}
 		}
@@ -84,6 +85,30 @@ func ApplyAdapter(a adapter.Adapter, opts ApplyOptions, backupDir string) ([]str
 		log = append(log, extra...)
 	}
 	return log, nil
+}
+
+// recordWrite adds one target to the backup set's manifest. An existing target is
+// copied into the set first (I4: back up before overwriting); a missing one is
+// recorded as create, so rollback deletes it. out is the content apply is about
+// to write: its fingerprint lets rollback tell apply's own output from a later
+// user edit.
+func recordWrite(backupDir string, id adapter.ID, rel, target string, mode os.FileMode, out []byte) error {
+	if backupDir == "" {
+		return nil
+	}
+	action, backupRel := backup.ActionCreate, ""
+	if _, err := os.Stat(target); err == nil {
+		action, backupRel = backup.ActionUpdate, filepath.Join(string(id), rel)
+	}
+	return backup.Record(backupDir, backup.Entry{
+		Adapter: string(id),
+		Rel:     rel,
+		Target:  target,
+		Backup:  backupRel,
+		Action:  action,
+		Mode:    backup.ModeString(mode),
+		After:   backup.FingerprintOf(out),
+	})
 }
 
 // ApplySkills projects $MAGIC_HOME/packs/skills to all Caps.Skills adapters.

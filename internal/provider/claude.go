@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -66,6 +67,8 @@ func enrichClaudeExtrasFromMeta(magicHome string, env map[string]string) {
 }
 
 // claudeEffortFromMeta picks the highest available thinking level key (max > xhigh > high > …).
+// A level outside that order is taken in sorted key order: ranging the map
+// would pick a different key per call and change settings.json bytes.
 func claudeEffortFromMeta(meta modelfile.Model) string {
 	if meta.ThinkingLevelMap == nil || len(meta.ThinkingLevelMap) == 0 {
 		return ""
@@ -76,10 +79,15 @@ func claudeEffortFromMeta(meta modelfile.Model) string {
 			return k
 		}
 	}
+	extras := make([]string, 0, len(meta.ThinkingLevelMap))
 	for k := range meta.ThinkingLevelMap {
-		return k
+		extras = append(extras, k)
 	}
-	return ""
+	sort.Strings(extras)
+	if len(extras) == 0 {
+		return ""
+	}
+	return extras[0]
 }
 
 // UpsertClaudeSettings merges managed env into settings.json bytes.
@@ -181,48 +189,27 @@ func DetectClaudeActive(settings []byte, f *catalog.File) string {
 	return "unknown"
 }
 
-func applyClaude(ctx Context, req ApplyRequest) (string, error) {
+// filesClaude projects the resolved selection into ~/.claude/settings.json: the
+// Magic-managed env keys for a provider, or the managed keys removed for official.
+func filesClaude(ctx Context, req ApplyRequest) ([]FileWrite, error) {
 	path := ClaudeSettingsPath(ctx.UserHome)
-	var existing []byte
-	if raw, err := os.ReadFile(path); err == nil {
-		existing = raw
-	} else if !os.IsNotExist(err) {
-		return "", err
+	existing, err := readTarget(ctx, path)
+	if err != nil {
+		return nil, err
 	}
-
 	var env map[string]string
 	clear := req.Official
 	if !clear {
-		var err error
 		env, err = BuildClaudeEnvFromProvider(ctx.MagicHome, req.Name, req.Provider, req.Endpoint, req.APIKey)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	}
-
 	out, err := UpsertClaudeSettings(existing, env, clear)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
-	bak, err := CreateBackup(ctx.MagicHome, HarnessClaude, path, "settings", ".json")
-	if err != nil {
-		return "", err
-	}
-	if err := atomicWrite(path, out, 0o600); err != nil {
-		return "", err
-	}
-	var b strings.Builder
-	if bak != "" {
-		fmt.Fprintf(&b, "Backup: %s\n", bak)
-	}
-	if req.Official {
-		b.WriteString("Active: official (Magic-managed ANTHROPIC_* / CLAUDE_CODE_* overrides cleared)\n")
-	} else {
-		fmt.Fprintf(&b, "Active provider: %s (endpoint=%s protocol=%s)\n", req.Name, req.Endpoint.ID, req.Endpoint.Protocol)
-	}
-	b.WriteString("Restart Claude Code for the change to take effect.\n")
-	return b.String(), nil
+	return []FileWrite{{Path: path, Data: out, Mode: 0o600, Role: RoleSettingsEnv}}, nil
 }
 
 func claudeStatusText(ctx Context) string {

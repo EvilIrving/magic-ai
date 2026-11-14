@@ -15,6 +15,7 @@ import (
 	"magic/internal/catalog"
 	"magic/internal/core"
 	"magic/internal/mcp"
+	"magic/internal/provider"
 	"magic/internal/registry"
 	magsync "magic/internal/sync"
 )
@@ -46,10 +47,15 @@ Skill 真相源 = $MAGIC_HOME/packs/skills（默认 ~/.magic-ai）。
 
 	root.AddCommand(cmdVersion())
 	root.AddCommand(cmdInit())
+	root.AddCommand(cmdMigrate())
 	root.AddCommand(cmdGuide())
 	root.AddCommand(cmdAdapters())
 	root.AddCommand(cmdStatus())
+	root.AddCommand(cmdPlan())
 	root.AddCommand(cmdApply())
+	root.AddCommand(cmdVerify())
+	root.AddCommand(cmdDoctor())
+	root.AddCommand(cmdRollback())
 	root.AddCommand(cmdSync())
 	root.AddCommand(cmdCatalog())
 	root.AddCommand(cmdMCP())
@@ -158,6 +164,7 @@ func cmdAdapters() *cobra.Command {
 					out = append(out, map[string]any{
 						"id": a.ID(), "name": a.Name(), "implemented": a.Implemented(),
 						"skills": c.Skills, "agents": c.Agents, "mcp": c.MCP, "hooks": c.Hooks, "models": c.Models, "themes": c.Themes,
+						"reason": adapterStubReason(a),
 					})
 				}
 				b, err := json.MarshalIndent(out, "", "  ")
@@ -168,11 +175,15 @@ func cmdAdapters() *cobra.Command {
 				return nil
 			}
 			w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tNAME\tIMPLEMENTED\tSKILLS\tSUB-AGENT\tMCP\tHOOKS")
+			fmt.Fprintln(w, "ID\tNAME\tIMPLEMENTED\tSKILLS\tSUB-AGENT\tMCP\tHOOKS\tNOTE")
 			for _, a := range registry.List() {
 				c := a.Caps()
-				fmt.Fprintf(w, "%s\t%s\t%v\t%v\t%v\t%v\t%v\n",
-					a.ID(), a.Name(), a.Implemented(), c.Skills, c.Agents, c.MCP, c.Hooks)
+				note := adapterStubReason(a)
+				if note == "" {
+					note = "-"
+				}
+				fmt.Fprintf(w, "%s\t%s\t%v\t%v\t%v\t%v\t%v\t%s\n",
+					a.ID(), a.Name(), a.Implemented(), c.Skills, c.Agents, c.MCP, c.Hooks, note)
 			}
 			w.Flush()
 			return nil
@@ -180,6 +191,20 @@ func cmdAdapters() *cobra.Command {
 	}
 	c.Flags().BoolVar(&asJSON, "json", false, "print as JSON")
 	return c
+}
+
+// adapterStubReason is why a harness still has no provider dialect writer. The
+// text is the one-liner internal/provider/stubdialects.go records next to the
+// evidence; adapters with a real writer have none.
+func adapterStubReason(a adapter.Adapter) string {
+	w := provider.Writer(string(a.ID()))
+	if w == nil || w.Implemented() {
+		return ""
+	}
+	if reason, ok := provider.StubReason(string(a.ID())); ok {
+		return reason
+	}
+	return "provider 写入未实现（原因见 internal/provider/stubdialects.go）"
 }
 
 func cmdStatus() *cobra.Command {
@@ -266,9 +291,15 @@ func cmdApply() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "apply",
 		Short: "从配置库恢复镜像 + 投影 global packs/skills 与 sub-agents",
+		// A schema refusal and a failed projection are normal outcomes, not usage
+		// errors: the flag list would bury the one line that says what to run.
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mh, err := resolveMagicHome()
 			if err != nil {
+				return err
+			}
+			if err := requireLibrarySchema(mh); err != nil {
 				return err
 			}
 			uh, err := core.UserHome(flagHome)
@@ -282,6 +313,7 @@ func cmdApply() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				opts.BackupDir = backupDir
 				fmt.Printf("backup → %s\n", backupDir)
 			}
 			cfg, _ := core.LoadMagicConfig(core.NewPaths(mh).MagicYAML)

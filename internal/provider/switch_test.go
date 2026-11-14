@@ -42,7 +42,13 @@ func catalogFileForTest(t *testing.T) *catalog.File {
 }
 
 func TestSupportsOfficialFlags(t *testing.T) {
-	unsupported := map[string]bool{"pi": true, "opencode": true}
+	// Multi-provider harnesses, and harnesses whose first-party path is an
+	// interactive account login (Kimi Code /login, Vibe's Mistral account,
+	// Hermes `hermes auth`) rather than a file Magic may write.
+	unsupported := map[string]bool{
+		"pi": true, "opencode": true, "kimi-code": true, "vibe": true,
+		"hermes": true, "omp": true, "qoder": true, "mmx": true,
+	}
 	for _, w := range Writers() {
 		if !w.Implemented() {
 			continue

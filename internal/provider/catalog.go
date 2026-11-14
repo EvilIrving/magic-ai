@@ -10,6 +10,13 @@ const (
 	HarnessPi        = "pi"
 	HarnessOpenCode  = "opencode"
 	HarnessWorkBuddy = "workbuddy"
+	HarnessKimiCode  = "kimi-code"
+	HarnessVibe      = "vibe"
+	HarnessHermes    = "hermes"
+	HarnessOmp       = "omp"
+	HarnessDroid     = "droid"
+	HarnessQoder     = "qoder"
+	HarnessMmx       = "mmx"
 )
 
 // BackupLimit matches prompts-can scripts (keep latest 3).
@@ -57,6 +64,16 @@ func NormalizeHarness(s string) string {
 		return HarnessOpenCode
 	case "workbuddy", "codebuddy":
 		return HarnessWorkBuddy
+	case "kimi-code", "kimicode", "kimi":
+		return HarnessKimiCode
+	case "vibe", "mistral-vibe":
+		return HarnessVibe
+	case "hermes", "hermes-agent":
+		return HarnessHermes
+	case "omp", "oh-my-pi":
+		return HarnessOmp
+	case "droid", "factory":
+		return HarnessDroid
 	default:
 		return strings.ToLower(strings.TrimSpace(s))
 	}

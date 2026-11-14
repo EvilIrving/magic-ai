@@ -27,7 +27,7 @@ Magic 不只同步 skill：覆盖 skill、MCP、API，外加这类 per-harness �
 
 **不做：** 装软件、整机备份、同步会话/缓存、绑定 Raycast / Alfred / tinycast、Cherry Studio、把项目拷到 Documents。
 
-**配置库布局（已定死）：** `~/.magic-ai` 见用户目录 `README.md` 与 [docs/library-layout.md](./docs/library-layout.md)。`providers.yaml` + `secrets/providers.json`（本地明文，无 `.enc`）+ `packs/skills` + `packs/mcp` + `packs/harness/<id>`。官方 access token 不进库。**`.enc` 只表示云端状态**：`sync push` 只加密含密钥的文件并上传为 `.enc`（见 [docs/secrets-and-sync.md](./docs/secrets-and-sync.md)）。**无迁移入口**（开发阶段、零用户）。
+**配置库布局（已定死）：** `~/.magic-ai` 见用户目录 `README.md` 与 [docs/library-layout.md](./docs/library-layout.md)。`providers.yaml` + `secrets/providers.json`（本地明文，无 `.enc`）+ `packs/skills` + `packs/mcp` + `packs/harness/<id>`。官方 access token 不进库。**`.enc` 只表示云端状态**：`sync push` 只加密含密钥的文件并上传为 `.enc`（见 [docs/secrets-and-sync.md](./docs/secrets-and-sync.md)）。**库结构版本**记在 `magic.yaml` 的 `schema_version`（当前 1）：旧库用 `magic migrate` 升级，`apply` / `plan` / `verify` / `doctor` 遇到旧库或比程序新的库都拒绝写入。
 
 **产品决定（已锁定）见 [docs/decisions.md](./docs/decisions.md)**——那里是唯一定义处，本文件不重复列。
 

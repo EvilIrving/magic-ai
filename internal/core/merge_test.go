@@ -7,13 +7,12 @@ import (
 	"testing"
 )
 
-func TestMergeJSONObjectsKeepsUserKeys(t *testing.T) {
-	dst := filepath.Join(t.TempDir(), "settings.json")
-	_ = os.WriteFile(dst, []byte(`{"permissions":{"allow":["Bash"]},"env":{"OTHER":"1","KEEP":"x"}}`), 0o600)
+func TestProjectBytesKeepsUserKeys(t *testing.T) {
+	dst := []byte(`{"permissions":{"allow":["Bash"]},"env":{"OTHER":"1","KEEP":"x"}}`)
 	src := []byte(`{"env":{"OTHER":"2"},"statusLine":{"type":"command"}}`)
-	merged, ok, err := mergeJSONObjects(src, dst)
-	if err != nil || !ok {
-		t.Fatalf("merge ok=%v err=%v", ok, err)
+	merged, strategy, err := projectBytes("settings.json", src, dst, true)
+	if err != nil || strategy != StrategyJSONMerge {
+		t.Fatalf("strategy=%q err=%v", strategy, err)
 	}
 	s := string(merged)
 	if !strings.Contains(s, `"KEEP"`) || !strings.Contains(s, `"permissions"`) {
@@ -90,7 +89,7 @@ func TestMergeLibraryFileOverwritesWholeFile(t *testing.T) {
 	dir := t.TempDir()
 	dst := filepath.Join(dir, "AGENTS.md")
 	_ = os.WriteFile(dst, []byte("user local\n"), 0o644)
-	if err := mergeLibraryFile(dst, "AGENTS.md", []byte("library\n"), 0o644); err != nil {
+	if err := mergeLibraryFile("", "", dst, "AGENTS.md", []byte("library\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(dst)

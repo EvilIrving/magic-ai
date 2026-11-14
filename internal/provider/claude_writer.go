@@ -12,8 +12,8 @@ func (ClaudeWriter) ConfigPath(userHome string) string {
 	return ClaudeSettingsPath(userHome)
 }
 
-func (w ClaudeWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
-	return applyClaude(ctx, req)
+func (w ClaudeWriter) Files(ctx Context, req ApplyRequest) ([]FileWrite, error) {
+	return filesClaude(ctx, req)
 }
 
 func (w ClaudeWriter) Status(ctx Context) string { return claudeStatusText(ctx) }

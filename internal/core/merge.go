@@ -6,31 +6,74 @@ import (
 	"path/filepath"
 	"strings"
 
+	"magic/internal/adapter"
 	"magic/internal/secrets"
+	"magic/internal/writefile"
 )
 
 // mergeLibraryFile writes library bytes to dst following decisions.md D5:
 // structured config files merge by key; everything else (AGENTS.md-style whole
 // files, one-file-per-item assets) is written as-is. User keys/items that the
 // library does not define are never deleted.
-func mergeLibraryFile(dst, rel string, srcData []byte, mode os.FileMode) error {
-	if _, err := os.Stat(dst); err == nil {
-		base := filepath.Base(rel)
-		switch {
-		case isMergeableJSON(base):
-			if merged, ok, err := mergeJSONObjects(srcData, dst); err != nil {
-				return err
-			} else if ok {
-				return AtomicWriteFile(dst, merged, mode)
-			}
-		case base == "config.toml":
-			if existing, err := os.ReadFile(dst); err == nil {
-				merged := mergeTOML(string(existing), string(srcData))
-				return AtomicWriteFile(dst, []byte(merged), mode)
-			}
-		}
+//
+// The target is recorded in the backup set only when a write is needed, and
+// before the write, so an update entry holds the pre-apply content. A target
+// whose content and permission already match is left untouched.
+func mergeLibraryFile(backupDir string, id adapter.ID, dst, rel string, srcData []byte, mode os.FileMode) error {
+	existing, readErr := os.ReadFile(dst)
+	out, _, err := projectBytes(rel, srcData, existing, readErr == nil)
+	if err != nil {
+		return err
 	}
-	return AtomicWriteFile(dst, srcData, mode)
+	if !writefile.NeedsWrite(dst, out, mode) {
+		return nil
+	}
+	if err := recordWrite(backupDir, id, rel, dst, mode, out); err != nil {
+		return err
+	}
+	return writefile.Write(dst, out, mode)
+}
+
+// ProjectStrategy is the rule projectBytes actually used. A plan reports the
+// reason from it, so the reason cannot claim a merge that did not happen.
+type ProjectStrategy string
+
+const (
+	// StrategyCreate: the target does not exist, so the library bytes are written.
+	StrategyCreate ProjectStrategy = "create"
+	// StrategyJSONMerge: structured JSON deep merge, library value wins.
+	StrategyJSONMerge ProjectStrategy = "json-merge"
+	// StrategyJSONFallback: the file is named like a structured JSON config but a
+	// side is not a parseable JSON object, so the whole file is replaced.
+	StrategyJSONFallback ProjectStrategy = "json-fallback"
+	// StrategyTOMLMerge: section-aware config.toml merge.
+	StrategyTOMLMerge ProjectStrategy = "toml-merge"
+	// StrategyWholeFile: the library bytes replace the target as-is.
+	StrategyWholeFile ProjectStrategy = "whole-file"
+)
+
+// projectBytes returns the bytes that apply writes to dst and the strategy it
+// used, following decisions.md D5. apply and plan both call it, so a plan cannot
+// describe a write that apply would not make.
+func projectBytes(rel string, srcData, dstData []byte, hasExisting bool) ([]byte, ProjectStrategy, error) {
+	if !hasExisting {
+		return srcData, StrategyCreate, nil
+	}
+	base := filepath.Base(rel)
+	switch {
+	case isMergeableJSON(base):
+		merged, ok, err := mergeJSONBytes(srcData, dstData)
+		if err != nil {
+			return nil, "", err
+		}
+		if ok {
+			return merged, StrategyJSONMerge, nil
+		}
+		return srcData, StrategyJSONFallback, nil
+	case base == "config.toml":
+		return []byte(mergeTOML(string(dstData), string(srcData))), StrategyTOMLMerge, nil
+	}
+	return srcData, StrategyWholeFile, nil
 }
 
 // isMergeableJSON reports whether a mirrored file is a structured config that
@@ -43,16 +86,11 @@ func isMergeableJSON(base string) bool {
 	return strings.HasSuffix(base, ".partial.json")
 }
 
-// mergeJSONObjects deep-merges the library JSON object into the existing file.
-// Returns ok=false when either side is not a JSON object, so the caller writes
-// the library bytes verbatim.
-func mergeJSONObjects(srcData []byte, dstPath string) ([]byte, bool, error) {
-	existing, err := os.ReadFile(dstPath)
-	if err != nil {
-		return nil, false, nil
-	}
+// mergeJSONBytes deep-merges the library JSON object over the existing bytes.
+// Returns ok=false when either side is not a JSON object.
+func mergeJSONBytes(srcData, dstData []byte) ([]byte, bool, error) {
 	var dstObj, srcObj map[string]any
-	if json.Unmarshal(secrets.StripJSONC(existing), &dstObj) != nil {
+	if json.Unmarshal(secrets.StripJSONC(dstData), &dstObj) != nil {
 		return nil, false, nil
 	}
 	if json.Unmarshal(secrets.StripJSONC(srcData), &srcObj) != nil {

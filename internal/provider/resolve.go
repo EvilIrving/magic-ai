@@ -129,21 +129,42 @@ var ProviderNameAliases = map[string]string{
 	"anthropic": "official", // handled separately; kept for list docs
 }
 
-// PreferredEndpoint picks the best endpoint for a harness dialect.
-func PreferredEndpoint(p catalog.Provider, harness string) (catalog.Endpoint, error) {
-	var want []string
+// SupportedProtocols lists the endpoint protocols a harness's SwitchWriter can
+// project, most preferred first; an alias such as "anthropic" is a protocol
+// spelling, not a separate protocol. Empty means "accepts whatever the provider
+// has", which is why PreferredEndpoint then takes the provider's first endpoint.
+func SupportedProtocols(harness string) []string {
 	switch NormalizeHarness(harness) {
 	case HarnessClaude:
-		want = []string{catalog.ProtocolAnthropicMessages, "anthropic"}
+		return []string{catalog.ProtocolAnthropicMessages, "anthropic"}
 	case HarnessCodex:
-		want = []string{catalog.ProtocolOpenAIResponses, catalog.ProtocolOpenAIChatCompletions, "openai"}
+		return []string{catalog.ProtocolOpenAIResponses, catalog.ProtocolOpenAIChatCompletions, "openai"}
 	case HarnessGrok:
-		want = []string{catalog.ProtocolOpenAIResponses, catalog.ProtocolOpenAIChatCompletions, catalog.ProtocolAnthropicMessages}
+		return []string{catalog.ProtocolOpenAIResponses, catalog.ProtocolOpenAIChatCompletions, catalog.ProtocolAnthropicMessages}
 	case HarnessPi, HarnessOpenCode, HarnessWorkBuddy:
-		want = catalog.PiOpenAIProtocolPreference
+		return catalog.PiOpenAIProtocolPreference
+	case HarnessKimiCode:
+		return kimiProtocolPreference
+	case HarnessVibe:
+		return vibeProtocolPreference
+	case HarnessHermes:
+		return hermesProtocolPreference
+	case HarnessOmp:
+		return catalog.PiOpenAIProtocolPreference
+	case HarnessDroid:
+		return droidProtocolPreference
+	case HarnessQoder:
+		return qoderProtocolPreference
+	case HarnessMmx:
+		return mmxProtocolPreference
 	default:
-		want = nil
+		return nil
 	}
+}
+
+// PreferredEndpoint picks the best endpoint for a harness dialect.
+func PreferredEndpoint(p catalog.Provider, harness string) (catalog.Endpoint, error) {
+	want := SupportedProtocols(harness)
 	if ep, ok := catalog.PickEndpoint(p, want...); ok {
 		return ep, nil
 	}

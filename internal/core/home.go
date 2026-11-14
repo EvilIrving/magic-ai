@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"magic/internal/catalog"
+	"magic/internal/writefile"
 )
 
 const Version = "1.0.0"
@@ -72,6 +73,8 @@ func InitSkeleton(root string) error {
 	if _, err := os.Stat(p.MagicYAML); os.IsNotExist(err) {
 		content := `# Magic config library (配置库)
 version: "1.0"
+# schema_version 是库结构版本；由 magic migrate 维护，不要手改。
+schema_version: 1
 adapters:
   enabled:
     - pi
@@ -101,12 +104,12 @@ adapters:
 # Skills truth: packs/skills under this dir.
 # Windsurf is not supported (dropped).
 `
-		if err := AtomicWriteFile(p.MagicYAML, []byte(content), 0o644); err != nil {
+		if err := writefile.Atomic(p.MagicYAML, []byte(content), 0o644); err != nil {
 			return err
 		}
 	}
 	if _, err := os.Stat(p.ProvidersYAML); os.IsNotExist(err) {
-		if err := AtomicWriteFile(p.ProvidersYAML, []byte(catalog.ExampleProvidersYAML), 0o644); err != nil {
+		if err := writefile.Atomic(p.ProvidersYAML, []byte(catalog.ExampleProvidersYAML), 0o644); err != nil {
 			return err
 		}
 	}
@@ -127,7 +130,7 @@ On ` + "`magic apply`" + `, files are copied into each Caps.Agents harness path:
 
 "agents" = sub-agent definitions, not a harness adapter.
 `
-		if err := AtomicWriteFile(agentsReadme, []byte(content), 0o644); err != nil {
+		if err := writefile.Atomic(agentsReadme, []byte(content), 0o644); err != nil {
 			return err
 		}
 	}
@@ -145,16 +148,21 @@ On ` + "`magic apply`" + `, files are copied into each Caps.Agents harness path:
 
 覆盖路径：MAGIC_HOME（别名 MAGIC_VAULT）。
 `
-		if err := AtomicWriteFile(p.README, []byte(content), 0o644); err != nil {
+		if err := writefile.Atomic(p.README, []byte(content), 0o644); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// BackupStampFormat is the directory name of one apply backup set. Rollback and
+// `rollback --list` recognise sets by this format; anything else under backups/
+// belongs to the provider layer (backups/<harness>/) and is not a candidate.
+const BackupStampFormat = "20060102T150405Z"
+
 // NewBackupDir creates backups/<utc>/ under MAGIC_HOME.
 func NewBackupDir(magicHome string) (string, error) {
-	stamp := time.Now().UTC().Format("20060102T150405Z")
+	stamp := time.Now().UTC().Format(BackupStampFormat)
 	dir := filepath.Join(magicHome, "backups", stamp)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err

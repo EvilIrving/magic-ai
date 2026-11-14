@@ -3,18 +3,9 @@ package catalog
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"magic/internal/modelfile"
-)
-
-// Magic-managed Claude settings.env keys (upsert only these).
-const (
-	ClaudeEnvBaseURL   = "ANTHROPIC_BASE_URL"
-	ClaudeEnvAPIKey    = "ANTHROPIC_API_KEY"
-	ClaudeEnvAuthToken = "ANTHROPIC_AUTH_TOKEN"
 )
 
 // ClaudeModelEnvKeys maps role → settings.json env key.
@@ -25,22 +16,6 @@ var ClaudeModelEnvKeys = map[string]string{
 	"default":   "ANTHROPIC_MODEL",
 	"reasoning": "ANTHROPIC_REASONING_MODEL",
 	"subagent":  "CLAUDE_CODE_SUBAGENT_MODEL",
-}
-
-// ClaudeSettingsEnv builds the Magic-managed env map for Claude Code settings.json.
-// apiKeyValue is the plaintext secret to write (Claude often needs inline tokens).
-// Per DeepSeek / Anthropic-compatible docs, AUTH_TOKEN is primary; API_KEY is also set
-// to the same value for broader Claude Code version compatibility.
-func ClaudeSettingsEnv(ep Endpoint, apiKeyValue string) map[string]string {
-	out := map[string]string{}
-	if ep.BaseURL != "" {
-		out[ClaudeEnvBaseURL] = ep.BaseURL
-	}
-	if apiKeyValue != "" {
-		out[ClaudeEnvAuthToken] = apiKeyValue
-		out[ClaudeEnvAPIKey] = apiKeyValue
-	}
-	return out
 }
 
 // ClaudeModelRoleEnv upserts ANTHROPIC_* / CLAUDE_CODE_SUBAGENT_MODEL role envs from
@@ -66,67 +41,6 @@ func ClaudeModelRoleEnv(p Provider) map[string]string {
 		}
 	}
 	return out
-}
-
-// UpsertClaudeSettingsJSON merges Magic-managed env keys into existing settings.json bytes.
-// Unrelated keys (permissions, hooks, …) are preserved. Returns pretty JSON + newline.
-func UpsertClaudeSettingsJSON(existing []byte, env map[string]string) ([]byte, error) {
-	root := map[string]any{}
-	if len(existing) > 0 {
-		if err := json.Unmarshal(existing, &root); err != nil {
-			return nil, fmt.Errorf("parse settings.json: %w", err)
-		}
-	}
-	envObj := map[string]any{}
-	if raw, ok := root["env"]; ok && raw != nil {
-		switch t := raw.(type) {
-		case map[string]any:
-			envObj = t
-		case map[string]string:
-			for k, v := range t {
-				envObj[k] = v
-			}
-		}
-	}
-	for k, v := range env {
-		envObj[k] = v
-	}
-	root["env"] = envObj
-	out, err := json.MarshalIndent(root, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	return append(out, '\n'), nil
-}
-
-// WriteClaudeSettings upserts Magic env into ~/.claude/settings.json (mode 0600).
-func WriteClaudeSettings(userHome string, env map[string]string, dryRun bool) (path string, skipped bool, err error) {
-	path = filepath.Join(userHome, ".claude", "settings.json")
-	var existing []byte
-	if raw, readErr := os.ReadFile(path); readErr == nil {
-		existing = raw
-	} else if !os.IsNotExist(readErr) {
-		return path, false, readErr
-	}
-	out, err := UpsertClaudeSettingsJSON(existing, env)
-	if err != nil {
-		return path, false, err
-	}
-	if dryRun {
-		return path, false, nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return path, false, err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, out, 0o600); err != nil {
-		return path, false, err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		return path, false, err
-	}
-	_ = os.Chmod(path, 0o600)
-	return path, false, nil
 }
 
 // PiOpenAIProtocolPreference is the order used when projecting to Pi.
@@ -262,35 +176,4 @@ func MergePiModelsJSON(existing []byte, providerID string, entry PiProviderEntry
 		return nil, err
 	}
 	return append(out, '\n'), nil
-}
-
-// WritePiModels merges Magic provider into ~/.pi/agent/models.json (mode 0600).
-func WritePiModels(userHome, providerID string, entry PiProviderEntry, dryRun bool) (path string, err error) {
-	dir := filepath.Join(userHome, ".pi", "agent")
-	path = filepath.Join(dir, "models.json")
-	var existing []byte
-	if raw, readErr := os.ReadFile(path); readErr == nil {
-		existing = raw
-	} else if !os.IsNotExist(readErr) {
-		return path, readErr
-	}
-	out, err := MergePiModelsJSON(existing, providerID, entry)
-	if err != nil {
-		return path, err
-	}
-	if dryRun {
-		return path, nil
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return path, err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, out, 0o600); err != nil {
-		return path, err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		return path, err
-	}
-	_ = os.Chmod(path, 0o600)
-	return path, nil
 }

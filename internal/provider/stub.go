@@ -19,6 +19,6 @@ func (s StubWriter) Status(ctx Context) string {
 func (s StubWriter) List(ctx Context) string {
 	return fmt.Sprintf("official | <providerName>  (harness %s: not implemented yet)\n", s.ID)
 }
-func (s StubWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
-	return "", ErrNotImplemented(s.ID)
+func (s StubWriter) Files(ctx Context, req ApplyRequest) ([]FileWrite, error) {
+	return nil, ErrNotImplemented(s.ID)
 }

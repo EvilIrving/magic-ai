@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -39,45 +38,27 @@ func (GrokWriter) ConfigPath(userHome string) string {
 	return GrokConfigPath(userHome)
 }
 
-func (w GrokWriter) Apply(ctx Context, req ApplyRequest) (string, error) {
+// Files projects the resolved selection into ~/.grok/config.toml (the managed
+// catalog block, or the official defaults) and records the mode in
+// ~/.grok/provider-mode, which status and list read back.
+func (w GrokWriter) Files(ctx Context, req ApplyRequest) ([]FileWrite, error) {
 	path := GrokConfigPath(ctx.UserHome)
-	current, _ := readFileString(path)
+	current, err := readTarget(ctx, path)
+	if err != nil {
+		return nil, err
+	}
 	mode := "official"
 	if !req.Official {
 		mode = "provider"
 	}
-	updated, err := SetGrokManagedConfig(current, mode, ctx.MagicHome, req)
+	updated, err := SetGrokManagedConfig(string(current), mode, ctx.MagicHome, req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	label := mode
-	if !req.Official {
-		label = req.Name
-	}
-	if updated == current && fileExists(path) {
-		_ = writeProviderMode(ctx.UserHome, modeLabel(req))
-		return fmt.Sprintf("Configuration already projecting %s", label), nil
-	}
-	bak, err := CreateBackup(ctx.MagicHome, HarnessGrok, path, "config", ".toml")
-	if err != nil {
-		return "", err
-	}
-	if err := atomicWrite(path, []byte(updated), 0o600); err != nil {
-		return "", err
-	}
-	_ = writeProviderMode(ctx.UserHome, modeLabel(req))
-	var b strings.Builder
-	if bak != "" {
-		fmt.Fprintf(&b, "Backup: %s\n", bak)
-	}
-	if req.Official {
-		b.WriteString("Grok configured for official mode (Magic-managed catalog cleared).\n")
-	} else {
-		fmt.Fprintf(&b, "Grok configured for provider %q (endpoint=%s api_backend=%s).\n",
-			req.Name, req.Endpoint.ID, ProtocolToGrokBackend(req.Endpoint.Protocol))
-	}
-	b.WriteString("Restart Grok for the change to take effect.\n")
-	return b.String(), nil
+	return []FileWrite{
+		{Path: path, Data: []byte(updated), Mode: 0o600, Role: RoleProviderBlock},
+		{Path: GrokModePath(ctx.UserHome), Data: []byte(modeLabel(req) + "\n"), Mode: 0o644, Role: RoleSidecar},
+	}, nil
 }
 
 func modeLabel(req ApplyRequest) string {
@@ -135,14 +116,6 @@ func (w GrokWriter) List(ctx Context) string {
 		fmt.Fprintf(&b, "%s %-14s pick=%v%s\n", marker, name, p.Pick, tag)
 	}
 	return b.String()
-}
-
-func writeProviderMode(userHome, mode string) error {
-	path := GrokModePath(userHome)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return atomicWrite(path, []byte(mode+"\n"), 0o644)
 }
 
 // DetectGrokMode returns official | providerName (from provider-mode file or heuristics).
